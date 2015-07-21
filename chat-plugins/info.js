@@ -174,7 +174,7 @@ var commands = exports.commands = {
 	/*********************************************************
 	 * Data Search Tools
 	 *********************************************************/
-	 
+	
 	randp: function (target, room, user) {
 		var fs = require('fs');
 		var fileName = "pokedex.js";
@@ -184,7 +184,7 @@ var commands = exports.commands = {
 		if (/shiny/i.test(target)) {
 			var shinyPoke = '-shiny';
 		}
-		var kanto = false; var jhoto = false; var hoenn = false; var sinnoh = false; var kalos = false; var unova = false;
+		var kanto = false; var johto = false; var hoenn = false; var sinnoh = false; var kalos = false; var unova = false;
 		if (/kanto/i.test(target) || /gen 1/i.test(target)) {
 			var kalos = true;
 			var x = Math.floor(Math.random() * (174 - 1)) + 1;
@@ -204,7 +204,7 @@ var commands = exports.commands = {
 			var unova = true;
 			var x = Math.floor(Math.random() * (834 - 752)) + 752;
 		};
-		if (kanto === false && jhoto === false && hoenn === false && sinnoh === false && kalos === false && unova === false) {
+		if (kanto === false && johto === false && hoenn === false && sinnoh === false && kalos === false && unova === false) {
 			var x = Math.floor(Math.random() * (856 - 1)) + 1;
 		};
 		
@@ -266,7 +266,7 @@ var commands = exports.commands = {
 		var pokeEgg1 = pokemon.slice(egg1Index1, egg1Index2);
 		
 		if (pokeName === "Ho-Oh" || pokeName === "Nidoran-F" || pokeName === "Nidoran-M" || pokeName === "Farfetch'd" || pokeName === "Porygon-Z") {
-			randP = '<table><tr><td><img src="http://play.pokemonshowdown.com/sprites/bw' + shinyPoke + '/' + string(pokeName).toLowerCase().replace(/[-]+/g, '').replace(/[']+/g, '') + '.png" height="96" width="96"></td><td><b>Name: </b>' + pokeName + '<br/><b>Type(s): </b>' + pokeType1 + ' ' + pokeType2 + '<br/><b>Ability: </b>' + pokeAbility1 + pokeAbility2 + pokeAbility3 + '<br/><b>Stats: </b>' + pokeStats + '<br/><b>Color: </b><font color="' + pokeColor + '">' + pokeColor + '</font><br/><b>Egg Group(s): </b>' + pokeEgg1 + pokeEgg2 + '</td></tr></table>';
+			randP = '<table><tr><td><img src="http://play.pokemonshowdown.com/sprites/bw' + shinyPoke + '/' + pokeName.toLowerCase().replace(/[-]+/g, '').replace(/[']+/g, '') + '.png" height="96" width="96"></td><td><b>Name: </b>' + pokeName + '<br/><b>Type(s): </b>' + pokeType1 + ' ' + pokeType2 + '<br/><b>Ability: </b>' + pokeAbility1 + pokeAbility2 + pokeAbility3 + '<br/><b>Stats: </b>' + pokeStats + '<br/><b>Color: </b><font color="' + pokeColor + '">' + pokeColor + '</font><br/><b>Egg Group(s): </b>' + pokeEgg1 + pokeEgg2 + '</td></tr></table>';
 		} else if (pokeName === "Basculin-Blue-Striped") {
 			randP = '<table><tr><td><img src="http://play.pokemonshowdown.com/sprites/bw' + shinyPoke + '/basculin-bluestriped.png" height="96" width="96"></td><td><b>Name: </b>' + pokeName + '<br/><b>Type(s): </b>' + pokeType1 + ' ' + pokeType2 + '<br/><b>Ability: </b>' + pokeAbility1 + pokeAbility2 + pokeAbility3 + '<br/><b>Stats: </b>' + pokeStats + '<br/><b>Color: </b><font color="' + pokeColor + '">' + pokeColor + '</font><br/><b>Egg Group(s): </b>' + pokeEgg1 + pokeEgg2 + '</td></tr></table>';
 		} else if (pokeName === "Pichu-Spiky-eared") {
@@ -316,7 +316,7 @@ var commands = exports.commands = {
 					break;
 			};
 		} else {
-			randP = '<table><tr><td><img src="http://play.pokemonshowdown.com/sprites/bw' + shinyPoke + '/' + string(pokeName).toLowerCase().replace(/[ ]+/g, '').replace(/[.]+/g, '').replace(/[']+/g, '') + '.png" height="96" width="96"></td><td><b>Name: </b>' + pokeName + '<br/><b>Type(s): </b>' + pokeType1 + ' ' + pokeType2 + '<br/><b>Ability: </b>' + pokeAbility1 + pokeAbility2 + pokeAbility3 + '<br/><b>Stats: </b>' + pokeStats + '<br/><b>Color: </b><font color="' + pokeColor + '">' + pokeColor + '</font><br/><b>Egg Group(s): </b>' + pokeEgg1 + pokeEgg2 + '</td></tr></table>';
+			randP = '<table><tr><td><img src="http://play.pokemonshowdown.com/sprites/bw' + shinyPoke + '/' + pokeName.toLowerCase().replace(/[ ]+/g, '').replace(/[.]+/g, '').replace(/[']+/g, '') + '.png" height="96" width="96"></td><td><b>Name: </b>' + pokeName + '<br/><b>Type(s): </b>' + pokeType1 + ' ' + pokeType2 + '<br/><b>Ability: </b>' + pokeAbility1 + pokeAbility2 + pokeAbility3 + '<br/><b>Stats: </b>' + pokeStats + '<br/><b>Color: </b><font color="' + pokeColor + '">' + pokeColor + '</font><br/><b>Egg Group(s): </b>' + pokeEgg1 + pokeEgg2 + '</td></tr></table>';
 		};
 		this.sendReplyBox(randP);
 	},
