@@ -321,6 +321,15 @@ var commands = exports.commands = {
 		this.sendReplyBox(randP);
 	},
 	
+	ssb: function (target, room, user) {
+		if (!this.canBroadcast()) return;
+		
+		var ssb = '<div class="message"><ul class="utilichart"><li class="result"><a data-name="Graveyard Strike"><span class="col movenamecol">Graveyard Strike</span> <span class="col typecol"><img src="//play.pokemonshowdown.com/sprites/types/Ghost.png" alt="Ghost" height="14" width="32"><img src="//play.pokemonshowdown.com/sprites/categories/Special.png" alt="Special" height="14" width="32"></span> <span class="col labelcol"><em>Power</em><br>80</span> <span class="col widelabelcol"><em>Accuracy</em><br>100%</span> <span class="col pplabelcol"><em>PP</em><br>16</span> <span class="col movedesccol">Burns target.</span><span class="col movedesccol">Power doubles if the target has a status ailment.</span><span class="col movedesccol">Effective to Normal Type and Super Effective to Dark Type.</span> </a></li><li style="clear:both"></li></ul></div>'
+		var ssb2 = '<div class="notice"><font size="1" target="_blank"><font color="#585858" target="_blank">Priority:</font> 0&nbsp;|  <font color="#585858" target="_blank">Target:</font> One Adjacent Pokémon</font></div>'
+		this.sendReplyBox('raw|' + ssb);
+		this.sendReplyBox('raw|' + ssb2);
+	},
+	
 	pstats: 'data',
 	stats: 'data',
 	dex: 'data',
