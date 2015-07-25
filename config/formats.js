@@ -1127,17 +1127,17 @@ exports.Formats = [
 		ruleset: ['Pokemon', 'HP Percentage Mod', 'Cancel Mod']
 	},
 	{
-		name: "Super Staff Bros.",
+		name: "Eos Staff Bros.",
 		section: "Other Metagames",
 
-		mod: 'superstaffbros',
+		mod: 'eosstaffbros',
 		team: 'randomOMAuth',
 		ruleset: ['Pokemon', 'Sleep Clause Mod', 'HP Percentage Mod', 'Cancel Mod'],
 		onBegin: function () {
 			// This seasonal gets a bit from Super Smash Bros., that's where the initial message comes from.
 			this.add('message', "GET READY FOR THE NEXT BATTLE!");
 			// This link leads to a post where all signature moves can be found so the user can use this resource while battling.
-			this.add("raw|Super Staff Bros. information can be found <a href='http://pastebin.com/nVr0aiHX'>here.</a>");
+			this.add("raw|Eos Staff Bros. information can be found <a href='http://pastebin.com/nVr0aiHX'>here.</a>");
 			this.add("raw|~coded by Mr. CGTNathan.");
 			// This variable saves the status of a spammy conversation to be played, so it's only played once.
 			this.convoPlayed = false;
