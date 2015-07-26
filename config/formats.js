@@ -1231,9 +1231,6 @@ exports.Formats = [
 			if (name === 'nineage') {
 				this.add('c|~Nineage|Fuck the police');
 			}
-			if (name === 'allendbb') {
-				this.add('c|~AllenDBB|( ͡° ͜ʖ ͡°) D A B I C B O I ( ͡° ͜ʖ ͡°)');
-			}
 			if (name === 'arkenciel') {
 				this.add('c|~ArkenCiel|It\'s okay to feel helpless. You\'re just being yourself.');
 			}
@@ -1253,6 +1250,9 @@ exports.Formats = [
 			}
 			if (name === 'piersnivans') {
 				this.add('c|&Piers Niνans|Let\'s go, Captain!');
+			}
+			if (name === 'allendbb') {
+				this.add('c|&AllenDBB|( ͡° ͜ʖ ͡°) D A B I C B O I ( ͡° ͜ʖ ͡°)');
 			}
 			
 			// Moderators
@@ -1397,9 +1397,6 @@ exports.Formats = [
 			if (name === 'nineage') {
 				this.add('c|~Nineage|Fender fucked up');
 			}
-			if (name === 'allendbb') {
-				this.add('c|~AllenDBB|gg ( ͡° ʖ̯ ͡°)');
-			}
 			if (name === 'arkenciel') {
 				this.add('c|~ArkenCiel|Haha, so you\'re not as helpless as you seem. Later.');
 			}
@@ -1420,6 +1417,9 @@ exports.Formats = [
 			}
 			if (name === 'piersnivans') {
 				this.add('c|&Piers Niνans|I won\'t be going with you after all, Chris.....');
+			}
+			if (name === 'allendbb') {
+				this.add('c|&AllenDBB|gg ( ͡° ʖ̯ ͡°)');
 			}
 			
 			// Moderators

@@ -35,12 +35,6 @@ exports.BattleScripts = {
 				baseSignatureMove: 'breakcode', signatureMove: "Break Code",
 				evs: {hp:252, atk:4, spe:252}, nature: 'Jolly'
 			},
-			'~AllenDBB': {
-				species: 'Scizor-Mega', ability: 'Hard Body Intimidation', item: 'Leftovers', gender: 'M',
-				moves: ['cosmicpower', 'swordsdance', 'recover'],
-				baseSignatureMove: 'datquickness', signatureMove: "Dat Quickness",
-				evs: {hp:248, atk:4, def:128, spd:128}, nature: 'Adamant'
-			},
 			'~ArkenCiel': {
 				species: 'Gallade-Mega', ability: 'Indifference', item: 'Weakness Policy', gender: 'M',
 				moves: ['boltstrike', 'suckerpunch', 'drainpunch', 'flareblitz', 'iciclecrash'],
@@ -78,6 +72,12 @@ exports.BattleScripts = {
 				moves: ['heartstamp', ['stormthrow', 'machpunch', 'frostbreath', 'bulletpunch', 'iciclecrash', 'magnetbomb'][this.random(6)], ['flamecharge', 'paraboliccharge', 'chargebeam', 'flamewheel', 'rollingkick'][this.random(5)]],
 				baseSignatureMove: 'sexmachineguns', signatureMove: "SEXMACHINEGUNS!!!",
 				evs: {atk:100, spa:156, spe:252}, nature: 'Naive'
+			},
+			'&AllenDBB': {
+				species: 'Scizor-Mega', ability: 'Hard Body Intimidation', item: 'Leftovers', gender: 'M',
+				moves: ['cosmicpower', 'swordsdance', 'recover'],
+				baseSignatureMove: 'datquickness', signatureMove: "Dat Quickness",
+				evs: {hp:248, atk:4, def:128, spd:128}, nature: 'Adamant'
 			},
 
 			// Mods.
