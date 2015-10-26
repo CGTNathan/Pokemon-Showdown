@@ -174,7 +174,7 @@ var Room = (function () {
 
 		var timeUntilExpire = this.muteQueue[0].time - Date.now();
 		if (timeUntilExpire <= 0) {
-			this.unmute(this.muteQueue[0].userid, true);
+			this.unmute(this.muteQueue[0].userid, "Your mute in '" + this.title + "' has expired.");
 			//runMuteTimer() is called again in unmute() so this function instance should be closed
 			return;
 		}
@@ -240,7 +240,7 @@ var Room = (function () {
 		user.updateIdentity(this.id);
 		return userid;
 	};
-	Room.prototype.unmute = function (userid, sendPopup) {
+	Room.prototype.unmute = function (userid, notifyText) {
 		var successUserid = false;
 		var user = Users(userid);
 		if (!user) {
@@ -269,9 +269,9 @@ var Room = (function () {
 			}
 		}
 
-		if (user.connected && successUserid) {
+		if (successUserid && user in this.users) {
 			user.updateIdentity(this.id);
-			if (sendPopup) user.popup("Your mute in " + this.title + " has expired.");
+			if (notifyText) user.popup(notifyText);
 		}
 		return successUserid;
 	};
@@ -296,7 +296,7 @@ var GlobalRoom = (function () {
 
 		this.chatRoomData = [];
 		try {
-			this.chatRoomData = JSON.parse(fs.readFileSync('config/chatrooms.json'));
+			this.chatRoomData = require('./config/chatrooms.json');
 			if (!Array.isArray(this.chatRoomData)) this.chatRoomData = [];
 		} catch (e) {} // file doesn't exist [yet]
 
@@ -327,7 +327,7 @@ var GlobalRoom = (function () {
 			var room = Rooms.createChatRoom(id, this.chatRoomData[i].title, this.chatRoomData[i]);
 			if (room.aliases) {
 				for (var a = 0; a < room.aliases.length; a++) {
-					aliases[room.aliases[a]] = room;
+					aliases[room.aliases[a]] = id;
 				}
 			}
 			this.chatRooms.push(room);
@@ -434,11 +434,11 @@ var GlobalRoom = (function () {
 	};
 
 	GlobalRoom.prototype.getFormatListText = function () {
-		var formatListText = '|formats';
+		var formatListText = '|formats' + (Ladders.formatsListPrefix || '');
 		var curSection = '';
 		for (var i in Tools.data.Formats) {
 			var format = Tools.data.Formats[i];
-			if (!format.challengeShow && !format.searchShow) continue;
+			if (!format.challengeShow && !format.searchShow && !format.tournamentShow) continue;
 
 			var section = format.section;
 			if (section === undefined) section = format.mod;
@@ -448,12 +448,12 @@ var GlobalRoom = (function () {
 				formatListText += '|,' + (format.column || 1) + '|' + section;
 			}
 			formatListText += '|' + format.name;
-			if (!format.challengeShow) {
-				formatListText += ',,';
-			} else if (!format.searchShow) {
-				formatListText += ',';
-			}
-			if (format.team) formatListText += ',#';
+			var displayCode = 0;
+			if (format.team) displayCode |= 1;
+			if (format.searchShow) displayCode |= 2;
+			if (format.challengeShow) displayCode |= 4;
+			if (format.tournamentShow) displayCode |= 8;
+			formatListText += ',' + displayCode.toString(16);
 		}
 		return formatListText;
 	};
@@ -531,24 +531,28 @@ var GlobalRoom = (function () {
 		// tell the user they've started searching
 		user.send('|updatesearch|' + JSON.stringify({searching: Object.keys(user.searching).concat(formatid)}));
 
-		// get the user's rating before actually starting to search
 		var newSearch = {
-			userid: user.userid,
+			userid: '',
 			team: user.team,
 			rating: 1000,
 			time: new Date().getTime()
 		};
 		var self = this;
-		user.doWithMMR(formatid, function (mmr, error) {
-			if (error) {
-				user.popup("Connection to ladder server failed with error: " + error.message + "; please try again later");
-				return;
-			}
-			newSearch.rating = mmr;
+
+		// Get the user's rating before actually starting to search.
+		Ladders(formatid).getRating(user.userid).then(function (rating) {
+			newSearch.rating = rating;
+			newSearch.userid = user.userid;
 			self.addSearch(newSearch, user, formatid);
+		}, function (error) {
+			// Rejects iff we retrieved the rating but the user had changed their name;
+			// the search simply doesn't happen in this case.
 		});
 	};
 	GlobalRoom.prototype.matchmakingOK = function (search1, search2, user1, user2, formatid) {
+		// This should never happen.
+		if (!user1 || !user2) return void require('./crashlogger.js')(new Error("Matched user " + (user1 ? search2.userid : search1.userid) + " not found"), "The main process");
+
 		// users must be different
 		if (user1 === user2) return false;
 
@@ -559,7 +563,7 @@ var GlobalRoom = (function () {
 		if (user1.lastMatch === user2.userid || user2.lastMatch === user1.userid) return false;
 
 		// search must be within range
-		var searchRange = 100, elapsed = Math.abs(search1.time - search2.time);
+		var searchRange = 100, elapsed = Date.now() - Math.min(search1.time, search2.time);
 		if (formatid === 'ou' || formatid === 'oucurrent' || formatid === 'randombattle') searchRange = 50;
 		searchRange += elapsed / 300; // +1 every .3 seconds
 		if (searchRange > 300) searchRange = 300;
@@ -930,62 +934,8 @@ var BattleRoom = (function () {
 				if (winner && !winner.registered) {
 					this.sendUser(winner, '|askreg|' + winner.userid);
 				}
-				var p1rating, p2rating;
 				// update rankings
-				this.push('|raw|Ladder updating...');
-				var self = this;
-				LoginServer.request('ladderupdate', {
-					p1: p1name,
-					p2: p2name,
-					score: p1score,
-					format: toId(rated.format)
-				}, function (data, statusCode, error) {
-					if (!self.battle) {
-						console.log('room expired before ladder update was received');
-						return;
-					}
-					if (!data) {
-						self.addRaw('Ladder (probably) updated, but score could not be retrieved (' + error.message + ').');
-						// log the battle anyway
-						if (!Tools.getFormat(self.format).noLog) {
-							self.logBattle(p1score);
-						}
-						return;
-					} else if (data.errorip) {
-						self.addRaw("This server's request IP " + data.errorip + " is not a registered server.");
-						return;
-					} else {
-						try {
-							p1rating = data.p1rating;
-							p2rating = data.p2rating;
-
-							//self.add("Ladder updated.");
-
-							var oldacre = Math.round(data.p1rating.oldacre);
-							var acre = Math.round(data.p1rating.acre);
-							var reasons = '' + (acre - oldacre) + ' for ' + (p1score > 0.99 ? 'winning' : (p1score < 0.01 ? 'losing' : 'tying'));
-							if (reasons.charAt(0) !== '-') reasons = '+' + reasons;
-							self.addRaw(Tools.escapeHTML(p1name) + '\'s rating: ' + oldacre + ' &rarr; <strong>' + acre + '</strong><br />(' + reasons + ')');
-
-							oldacre = Math.round(data.p2rating.oldacre);
-							acre = Math.round(data.p2rating.acre);
-							reasons = '' + (acre - oldacre) + ' for ' + (p1score > 0.99 ? 'losing' : (p1score < 0.01 ? 'winning' : 'tying'));
-							if (reasons.charAt(0) !== '-') reasons = '+' + reasons;
-							self.addRaw(Tools.escapeHTML(p2name) + '\'s rating: ' + oldacre + ' &rarr; <strong>' + acre + '</strong><br />(' + reasons + ')');
-
-							if (p1 && p1.userid === rated.p1) p1.cacheMMR(rated.format, data.p1rating);
-							if (p2 && p2.userid === rated.p2) p2.cacheMMR(rated.format, data.p2rating);
-							self.update();
-						} catch (e) {
-							self.addRaw('There was an error calculating rating changes.');
-							self.update();
-						}
-
-						if (!Tools.getFormat(self.format).noLog) {
-							self.logBattle(p1score, p1rating, p2rating);
-						}
-					}
-				});
+				Ladders(rated.format).updateRating(p1name, p2name, p1score, this);
 			}
 		} else if (Config.logchallenges) {
 			// Log challenges if the challenge logging config is enabled.
@@ -1339,13 +1289,10 @@ var BattleRoom = (function () {
 		}
 		var resend = joining || !this.battle.playerTable[oldid];
 		if (this.battle.playerTable[oldid]) {
+			this.battle.rename();
 			if (this.rated) {
-				this.add('|message|' + user.name + ' forfeited by changing their name.');
-				this.battle.lose(oldid);
-				this.battle.leave(oldid);
+				this.forfeit(user, " forfeited by changing their name.");
 				resend = false;
-			} else {
-				this.battle.rename();
 			}
 		}
 		delete this.users[oldid];
@@ -1454,6 +1401,11 @@ var BattleRoom = (function () {
 		}
 		this.expireTimer = null;
 
+		if (this.muteTimer) {
+			clearTimeout(this.muteTimer);
+		}
+		this.muteTimer = null;
+
 		// get rid of some possibly-circular references
 		delete rooms[this.id];
 	};
@@ -1464,8 +1416,8 @@ var ChatRoom = (function () {
 	function ChatRoom(roomid, title, options) {
 		Room.call(this, roomid, title);
 		if (options) {
-			this.chatRoomData = options;
 			Object.merge(this, options);
+			if (!this.isPersonal) this.chatRoomData = options;
 		}
 
 		this.logTimes = true;
@@ -1482,7 +1434,7 @@ var ChatRoom = (function () {
 			};
 			this.logEntry('NEW CHATROOM: ' + this.id);
 			if (Config.loguserstats) {
-				setInterval(this.logUserStats.bind(this), Config.loguserstats);
+				this.logUserStatsInterval = setInterval(this.logUserStats.bind(this), Config.loguserstats);
 			}
 		}
 
@@ -1570,7 +1522,11 @@ var ChatRoom = (function () {
 			if (!user.named) {
 				++guests;
 			}
-			++groups[user.group];
+			if (this.auth && this.auth[user.userid] && this.auth[user.userid] in groups) {
+				++groups[this.auth[user.userid]];
+			} else {
+				++groups[user.group];
+			}
 		}
 		var entry = '|userstats|total:' + total + '|guests:' + guests;
 		for (var i in groups) {
@@ -1622,30 +1578,33 @@ var ChatRoom = (function () {
 		}
 		this.lastUpdate = this.log.length;
 
+		// Set up expire timer to clean up inactive personal rooms.
+		if (this.isPersonal) {
+			if (this.expireTimer) clearTimeout(this.expireTimer);
+			this.expireTimer = setTimeout(this.tryExpire.bind(this), TIMEOUT_INACTIVE_DEALLOCATE);
+		}
+
 		this.send(update);
 	};
-	ChatRoom.prototype.getIntroMessage = function () {
-		if (this.modchat && this.introMessage) {
-			return '\n|raw|<div class="infobox"><div' + (!this.isOfficial ? ' class="infobox-limited"' : '') + '>' + this.introMessage + '</div>' +
-				'<br />' +
-				'<div class="broadcast-red">' +
-				'Must be rank ' + this.modchat + ' or higher to talk right now.' +
-				'</div></div>';
-		}
-
+	ChatRoom.prototype.tryExpire = function () {
+		this.destroy();
+	};
+	ChatRoom.prototype.getIntroMessage = function (user) {
+		var message = '';
+		if (this.introMessage) message += '\n|raw|<div class="infobox"><div' + (!this.isOfficial ? ' class="infobox-limited"' : '') + '>' + this.introMessage + '</div>';
+		if (this.staffMessage && user.can('mute', null, this)) message += (message ? '<br />' : '\n|raw|<div class="infobox">') + '(Staff intro:)<br /><div>' + this.staffMessage + '</div>';
 		if (this.modchat) {
-			return '\n|raw|<div class="infobox"><div class="broadcast-red">' +
+			message += (message ? '<br />' : '\n|raw|<div class="infobox">') + '<div class="broadcast-red">' +
 				'Must be rank ' + this.modchat + ' or higher to talk right now.' +
-				'</div></div>';
+				'</div>';
 		}
-
-		if (this.introMessage) return '\n|raw|<div class="infobox"><div' + (!this.isOfficial ? ' class="infobox-limited"' : '') + '>' + this.introMessage + '</div></div>';
-
-		return '';
+		if (message) message += '</div>';
+		return message;
 	};
 	ChatRoom.prototype.onJoinConnection = function (user, connection) {
 		var userList = this.userList ? this.userList : this.getUserList();
-		this.sendUser(connection, '|init|chat\n|title|' + this.title + '\n' + userList + '\n' + this.getLogSlice(-25).join('\n') + this.getIntroMessage());
+		this.sendUser(connection, '|init|chat\n|title|' + this.title + '\n' + userList + '\n' + this.getLogSlice(-25).join('\n') + this.getIntroMessage(user));
+		if (this.poll) this.poll.display(user, false);
 		if (global.Tournaments && Tournaments.get(this.id)) {
 			Tournaments.get(this.id).updateFor(user, connection);
 		}
@@ -1659,8 +1618,8 @@ var ChatRoom = (function () {
 
 		if (!merging) {
 			var userList = this.userList ? this.userList : this.getUserList();
-			this.sendUser(connection, '|init|chat\n|title|' + this.title + '\n' + userList + '\n' + this.getLogSlice(-100).join('\n') + this.getIntroMessage());
-
+			this.sendUser(connection, '|init|chat\n|title|' + this.title + '\n' + userList + '\n' + this.getLogSlice(-100).join('\n') + this.getIntroMessage(user));
+			if (this.poll) this.poll.display(user, false);
 			if (global.Tournaments && Tournaments.get(this.id)) {
 				Tournaments.get(this.id).updateFor(user, connection);
 			}
@@ -1685,6 +1644,7 @@ var ChatRoom = (function () {
 			} else {
 				entry = '|J|' + user.getIdentity(this.id);
 			}
+			if (this.staffMessage && user.can('mute', null, this)) this.sendUser(user, '|raw|<div class="infobox">(Staff intro:)<br /><div>' + this.staffMessage + '</div></div>');
 		} else if (!user.named) {
 			entry = '|L| ' + oldid;
 		} else {
@@ -1739,6 +1699,26 @@ var ChatRoom = (function () {
 		rooms.global.deregisterChatRoom(this.id);
 		rooms.global.delistChatRoom(this.id);
 
+		if (this.aliases) {
+			for (var i = 0; i < this.aliases.length; i++) {
+				delete aliases[this.aliases[i]];
+			}
+		}
+
+		// Clear any active timers for the room
+		if (this.muteTimer) {
+			clearTimeout(this.muteTimer);
+		}
+		this.muteTimer = null;
+		if (this.reportJoinsInterval) {
+			clearTimeout(this.reportJoinsInterval);
+		}
+		this.reportJoinsInterval = null;
+		if (this.logUserStatsInterval) {
+			clearTimeout(this.logUserStatsInterval);
+		}
+		this.logUserStatsInterval = null;
+
 		// get rid of some possibly-circular references
 		delete rooms[this.id];
 	};
@@ -1756,7 +1736,7 @@ function getRoom(roomid, fallback) {
 }
 Rooms.get = getRoom;
 Rooms.search = function (name, fallback) {
-	return getRoom(name) || getRoom(toId(name)) || Rooms.aliases[toId(name)] || (fallback ? rooms.global : undefined);
+	return getRoom(name) || getRoom(toId(name)) || getRoom(Rooms.aliases[toId(name)]) || (fallback ? rooms.global : undefined);
 };
 
 Rooms.createBattle = function (roomid, format, p1, p2, options) {
@@ -1765,8 +1745,8 @@ Rooms.createBattle = function (roomid, format, p1, p2, options) {
 	if (!roomid) roomid = 'default';
 	if (!rooms[roomid]) {
 		// console.log("NEW BATTLE ROOM: " + roomid);
-		ResourceMonitor.countBattle(p1.latestIp, p1.name);
-		ResourceMonitor.countBattle(p2.latestIp, p2.name);
+		Monitor.countBattle(p1.latestIp, p1.name);
+		Monitor.countBattle(p2.latestIp, p2.name);
 		rooms[roomid] = new BattleRoom(roomid, format, p1, p2, options);
 	}
 	return rooms[roomid];

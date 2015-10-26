@@ -15,12 +15,13 @@ var fileCache = new CacheSwap({tmpDir: '', cacheDirName: 'gulp-cache'});
 
 var globals = {};
 var globalList = [
-	'Config', 'ResourceMonitor', 'toId', 'Tools', 'LoginServer', 'Users', 'Rooms', 'Verifier',
-	'CommandParser', 'Simulator', 'Tournaments', 'Dnsbl', 'Cidr', 'Sockets', 'TeamValidator'
+	'Config', 'Monitor', 'toId', 'Tools', 'LoginServer', 'Users', 'Rooms', 'Verifier',
+	'CommandParser', 'Simulator', 'Tournaments', 'Dnsbl', 'Cidr', 'Sockets', 'TeamValidator',
+	'Ladders'
 ];
 globalList.forEach(function (identifier) {globals[identifier] = false;});
 
-function transformLet () {
+function transformLet() {
 	// Replacing `var` with `let` is sort of a hack that stops jsHint from
 	// complaining that I'm using `var` like `let` should be used, but
 	// without having to deal with iffy `let` support.
@@ -29,8 +30,8 @@ function transformLet () {
 		.pipe(replace.bind(null, /\bvar\b/g, 'let'))();
 }
 
-function lint (jsHintOptions, jscsOptions) {
-	function cachedJsHint () {
+function lint(jsHintOptions, jscsOptions) {
+	function cachedJsHint() {
 		return cache(jshint(jsHintOptions), {
 			success: function (file) {
 				return file.jshint.success;
@@ -91,44 +92,40 @@ jscsOptions.base = {
 	"maximumLineLength": null,
 	"validateIndentation": '\t',
 	"validateQuoteMarks": null,
-	"disallowYodaConditions": null,
 	"disallowQuotedKeysInObjects": null,
 	"requireDotNotation": null,
 
 	"disallowMultipleVarDecl": null,
 	"disallowImplicitTypeConversion": null,
 	"requireSpaceAfterLineComment": null,
-	"validateJSDoc": null,
 
 	"disallowMixedSpacesAndTabs": "smart",
 	"requireSpaceAfterKeywords": true,
+	"requireSpaceAfterBinaryOperators": [
+		'=', '+=', '-=', '*=', '/=', '%=', '<<=', '>>=', '>>>=',
+		'&=', '|=', '^=',
 
-	"disallowSpacesInFunctionDeclaration": null,
-	"requireSpacesInFunctionDeclaration": {
-		"beforeOpeningCurlyBrace": true
-	},
-	"requireSpacesInAnonymousFunctionExpression": {
-		"beforeOpeningRoundBrace": true,
-		"beforeOpeningCurlyBrace": true
-	},
-	"disallowSpacesInNamedFunctionExpression": null,
-	"requireSpacesInNamedFunctionExpression": {
-		"beforeOpeningCurlyBrace": true
-	},
+		'+', '-', '*', '/', '%', '<<', '>>', '>>>', '&',
+		'|', '^', '&&', '||', '===', '==', '>=',
+		'<=', '<', '>', '!=', '!==',
+
+		','
+	],
+
+	"disallowSpacesInCallExpression": true,
 	"validateParameterSeparator": ", ",
 
 	"requireBlocksOnNewline": 1,
 	"disallowPaddingNewlinesInBlocks": true,
 
+	"disallowSpaceBeforeSemicolon": true,
 	"requireOperatorBeforeLineBreak": true,
 	"disallowTrailingComma": true,
 
 	"requireCapitalizedConstructors": true,
 
 	"validateLineBreaks": require('os').EOL === '\n' ? 'LF' : null,
-	"disallowMultipleLineBreaks": null,
-
-	"esnext": true
+	"disallowMultipleLineBreaks": null
 };
 jscsOptions.config = util._extend(util._extend({}, jscsOptions.base), {
 	"disallowTrailingComma": null

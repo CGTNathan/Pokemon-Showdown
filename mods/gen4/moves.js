@@ -223,10 +223,6 @@ exports.BattleMovedex = {
 			onTryHitPriority: 3,
 			onTryHit: function (target, source, move) {
 				if (!move.flags['protect']) return;
-				if (move.breaksProtect) {
-					target.removeVolatile('Protect');
-					return;
-				}
 				this.add('-activate', target, 'Protect');
 				var lockedmove = source.getVolatile('lockedmove');
 				if (lockedmove) {
@@ -395,9 +391,10 @@ exports.BattleMovedex = {
 	feint: {
 		inherit: true,
 		basePower: 50,
-		onTryHit: function (target) {
+		onTry: function (source, target) {
 			if (!target.volatiles['protect']) {
-				return false;
+				this.add('-fail', source);
+				return null;
 			}
 		}
 	},
@@ -773,7 +770,8 @@ exports.BattleMovedex = {
 				pp: 5,
 				maxpp: move.pp * 8 / 5,
 				disabled: false,
-				used: false
+				used: false,
+				virtual: true
 			};
 			source.moves[moveslot] = toId(move.name);
 			this.add('-activate', source, 'move: Mimic', move.name);
@@ -871,10 +869,6 @@ exports.BattleMovedex = {
 			onTryHitPriority: 3,
 			onTryHit: function (target, source, move) {
 				if (!move.flags['protect']) return;
-				if (move.breaksProtect) {
-					target.removeVolatile('Protect');
-					return;
-				}
 				this.add('-activate', target, 'Protect');
 				var lockedmove = source.getVolatile('lockedmove');
 				if (lockedmove) {

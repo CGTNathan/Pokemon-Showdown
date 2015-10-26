@@ -19,16 +19,15 @@ exports.BattleStatuses = {
 		onStart: function (target) {
 			this.add('-status', target, 'par');
 		},
-		onModifySpe: function (speMod, pokemon) {
+		onModifySpe: function (spe, pokemon) {
 			if (!pokemon.hasAbility('quickfeet')) {
-				return this.chain(speMod, 0.25);
+				return this.chainModify(0.25);
 			}
 		},
 		onBeforeMovePriority: 1,
 		onBeforeMove: function (pokemon) {
 			if (this.random(4) === 0) {
 				this.add('cant', pokemon, 'par');
-				pokemon.isStaleHP++;
 				return false;
 			}
 		}
@@ -412,7 +411,7 @@ exports.BattleStatuses = {
 			}
 			return 5;
 		},
-		onBasePower: function (basePower, attacker, defender, move) {
+		onWeatherModifyDamage: function (damage, attacker, defender, move) {
 			if (move.type === 'Water') {
 				this.debug('rain water boost');
 				return this.chainModify(1.5);
@@ -449,7 +448,7 @@ exports.BattleStatuses = {
 				return null;
 			}
 		},
-		onBasePower: function (basePower, attacker, defender, move) {
+		onWeatherModifyDamage: function (damage, attacker, defender, move) {
 			if (move.type === 'Water') {
 				this.debug('Rain water boost');
 				return this.chainModify(1.5);
@@ -476,7 +475,7 @@ exports.BattleStatuses = {
 			}
 			return 5;
 		},
-		onBasePower: function (basePower, attacker, defender, move) {
+		onWeatherModifyDamage: function (damage, attacker, defender, move) {
 			if (move.type === 'Fire') {
 				this.debug('Sunny Day fire boost');
 				return this.chainModify(1.5);
@@ -516,7 +515,7 @@ exports.BattleStatuses = {
 				return null;
 			}
 		},
-		onBasePower: function (basePower, attacker, defender, move) {
+		onWeatherModifyDamage: function (damage, attacker, defender, move) {
 			if (move.type === 'Fire') {
 				this.debug('Sunny Day fire boost');
 				return this.chainModify(1.5);

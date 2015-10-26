@@ -18,13 +18,12 @@ global.Config = require('./config/config.js');
 if (Config.crashguard) {
 	// graceful crash - allow current battles to finish before restarting
 	process.on('uncaughtException', function (err) {
-		require('./crashlogger.js')(err, 'A simulator process');
+		require('./crashlogger.js')(err, 'A simulator process', true);
 		/* var stack = ("" + err.stack).escapeHTML().split("\n").slice(0, 2).join("<br />");
 		if (Rooms.lobby) {
 			Rooms.lobby.addRaw('<div><b>THE SERVER HAS CRASHED:</b> ' + stack + '<br />Please restart the server.</div>');
 			Rooms.lobby.addRaw('<div>You will not be able to talk in the lobby or start new battles until the server restarts.</div>');
 		}
-		Config.modchat = 'crash';
 		Rooms.global.lockdown = true; */
 	});
 }
@@ -48,7 +47,7 @@ global.toId = function (text) {
 	return ('' + text).toLowerCase().replace(/[^a-z0-9]+/g, '');
 };
 
-global.Tools = require('./tools.js');
+global.Tools = require('./tools.js').includeMods();
 
 var Battle, BattleSide, BattlePokemon;
 
@@ -297,9 +296,10 @@ BattlePokemon = (function () {
 		if (this.template.baseStats['hp'] === 1) this.maxhp = 1; // shedinja
 		this.hp = this.hp || this.maxhp;
 
-		this.isStale = false;
-		this.isNearlyStale = false;
+		this.isStale = 0;
+		this.isStaleCon = 0;
 		this.isStaleHP = this.maxhp;
+		this.isStalePPTurns = 0;
 
 		this.baseIvs = this.set.ivs;
 		this.baseHpType = this.hpType;
@@ -471,9 +471,7 @@ BattlePokemon = (function () {
 		// stat modifier effects
 		if (!unmodified) {
 			var statTable = {atk:'Atk', def:'Def', spa:'SpA', spd:'SpD', spe:'Spe'};
-			var statMod = 1;
-			statMod = this.battle.runEvent('Modify' + statTable[statName], this, null, null, statMod);
-			stat = this.battle.modify(stat, statMod);
+			stat = this.battle.runEvent('Modify' + statTable[statName], this, null, null, stat);
 		}
 		if (this.battle.getStatCallback) {
 			stat = this.battle.getStatCallback(stat, statName, this, unboosted);
@@ -542,6 +540,18 @@ BattlePokemon = (function () {
 				target = this.battle.runEvent('RedirectTarget', this, this, move, target);
 			}
 			targets = [target];
+
+			// Resolve apparent targets for Pressure.
+			if (move.pressureTarget) {
+				// At the moment, this is the only supported target.
+				if (move.pressureTarget === 'foeSide') {
+					for (var i = 0; i < this.side.foe.active.length; i++) {
+						if (this.side.foe.active[i] && !this.side.foe.active[i].fainted) {
+							targets.push(this.side.foe.active[i]);
+						}
+					}
+				}
+			}
 		}
 		return targets;
 	};
@@ -554,18 +564,25 @@ BattlePokemon = (function () {
 	BattlePokemon.prototype.deductPP = function (move, amount, source) {
 		move = this.battle.getMove(move);
 		var ppData = this.getMoveData(move);
-		var success = false;
-		if (ppData) {
-			ppData.used = true;
+		if (!ppData) return false;
+		ppData.used = true;
+		if (!ppData.pp) return false;
+
+		ppData.pp -= amount || 1;
+		if (ppData.pp <= 0) {
+			ppData.pp = 0;
 		}
-		if (ppData && ppData.pp) {
-			ppData.pp -= amount || 1;
-			if (ppData.pp <= 0) {
-				ppData.pp = 0;
+		if (ppData.virtual) {
+			var foeActive = this.side.foe.active;
+			for (var i = 0; i < foeActive.length; i++) {
+				if (foeActive[i].isStale >= 2) {
+					if (move.selfSwitch) this.isStalePPTurns++;
+					return true;
+				}
 			}
-			success = true;
 		}
-		return success;
+		this.isStalePPTurns = 0;
+		return true;
 	};
 	BattlePokemon.prototype.moveUsed = function (move) {
 		this.lastMove = this.battle.getMove(move).id;
@@ -727,7 +744,7 @@ BattlePokemon = (function () {
 			this.battle.singleEvent('Copy', this.getVolatile(i), this.volatiles[i], this);
 		}
 	};
-	BattlePokemon.prototype.transformInto = function (pokemon, user) {
+	BattlePokemon.prototype.transformInto = function (pokemon, user, effect) {
 		var template = pokemon.template;
 		if (pokemon.fainted || pokemon.illusion || (pokemon.volatiles['substitute'] && this.battle.gen >= 5)) {
 			return false;
@@ -755,7 +772,6 @@ BattlePokemon = (function () {
 		this.set.ivs = (this.battle.gen >= 5 ? this.set.ivs : pokemon.set.ivs);
 		this.hpType = (this.battle.gen >= 5 ? this.hpType : pokemon.hpType);
 		this.hpPower = (this.battle.gen >= 5 ? this.hpPower : pokemon.hpPower);
-		if (pokemon.isStale) this.isStale = true;
 		for (var i = 0; i < pokemon.moveset.length; i++) {
 			var moveData = pokemon.moveset[i];
 			var moveName = moveData.move;
@@ -768,14 +784,20 @@ BattlePokemon = (function () {
 				pp: moveData.maxpp === 1 ? 1 : 5,
 				maxpp: this.battle.gen >= 5 ? (moveData.maxpp === 1 ? 1 : 5) : moveData.maxpp,
 				target: moveData.target,
-				disabled: false
+				disabled: false,
+				used: false,
+				virtual: true
 			});
 			this.moves.push(toId(moveName));
 		}
 		for (var j in pokemon.boosts) {
 			this.boosts[j] = pokemon.boosts[j];
 		}
-		this.battle.add('-transform', this, pokemon);
+		if (effect) {
+			this.battle.add('-transform', this, pokemon, '[from] ' + effect);
+		} else {
+			this.battle.add('-transform', this, pokemon);
+		}
 		this.setAbility(pokemon.ability);
 		this.update();
 		return true;
@@ -810,8 +832,8 @@ BattlePokemon = (function () {
 				if (this.battle.gen === 1) {
 					this.modifiedStats[statName] = Math.floor(stat);
 					// ...and here is where the gen 1 games re-apply burn and para drops.
-					if (this.status === 'par') this.modifyStat('spe', 0.25);
-					if (this.status === 'brn') this.modifyStat('atk', 0.5);
+					if (this.status === 'par' && statName === 'spe') this.modifyStat('spe', 0.25);
+					if (this.status === 'brn' && statName === 'atk') this.modifyStat('atk', 0.5);
 				}
 			}
 			this.speed = this.stats.spe;
@@ -1110,7 +1132,10 @@ BattlePokemon = (function () {
 	BattlePokemon.prototype.setItem = function (item, source, effect) {
 		if (!this.hp || !this.isActive) return false;
 		item = this.battle.getItem(item);
-		if (item.id === 'leppaberry') this.isStale = true;
+		if (item.id === 'leppaberry') {
+			this.isStale = 2;
+			this.isStaleSource = 'getleppa';
+		}
 		this.lastItem = this.item;
 		this.item = item.id;
 		this.itemData = {id: item.id, target: this};
@@ -1366,6 +1391,8 @@ BattleSide = (function () {
 		var sideScripts = battle.data.Scripts.side;
 		if (sideScripts) Object.merge(this, sideScripts);
 
+		this.getChoice = (this.getChoice || BattleSide.getChoice).bind(this);
+
 		this.battle = battle;
 		this.n = n;
 		this.name = name;
@@ -1394,6 +1421,11 @@ BattleSide = (function () {
 			this.pokemon[i].position = i;
 		}
 	}
+
+	BattleSide.getChoice = function (side) {
+		if (side !== this && side !== true) return '';
+		return this.choice;
+	};
 
 	BattleSide.prototype.isActive = false;
 	BattleSide.prototype.pokemonLeft = 0;
@@ -1515,7 +1547,11 @@ BattleSide = (function () {
 		this.battle.send('request', this.id + "\n" + this.battle.rqid + "\n" + JSON.stringify(update));
 	};
 	BattleSide.prototype.resolveDecision = function () {
-		if (this.decision) return this.decision;
+		if (this.decision) {
+			if (this.decision === true) this.choice = '';
+			return;
+		}
+
 		var decisions = [];
 
 		switch (this.currentRequest) {
@@ -1565,7 +1601,7 @@ BattleSide = (function () {
 			var willPass = canSwitchOut.splice(Math.min(canSwitchOut.length, canSwitchIn.length));
 			for (var i = 0; i < canSwitchOut.length; i++) {
 				decisions.push({
-					choice: 'instaswitch',
+					choice: this.foe.currentRequest === 'switch' ? 'instaswitch' : 'switch',
 					pokemon: this.active[canSwitchOut[i]],
 					target: this.pokemon[canSwitchIn[i]]
 				});
@@ -1587,7 +1623,8 @@ BattleSide = (function () {
 			});
 		}
 
-		return decisions;
+		this.choice = '';
+		this.decision = decisions;
 	};
 	BattleSide.prototype.destroy = function () {
 		// deallocate ourself
@@ -1641,6 +1678,11 @@ Battle = (function () {
 			return battle;
 		};
 	})();
+
+	Battle.logReplay = function (data, isReplay) {
+		if (isReplay === true) return data;
+		return '';
+	};
 
 	Battle.prototype = {};
 
@@ -2292,20 +2334,19 @@ Battle = (function () {
 					BeforeMove: 1,
 					BasePower: 1,
 					Immunity: 1,
-					Accuracy: 1,
 					RedirectTarget: 1,
 					Heal: 1,
 					SetStatus: 1,
 					CriticalHit: 1,
 					ModifyPokemon: 1,
-					ModifyAtk: 1, ModifyDef: 1, ModifySpA: 1, ModifySpD: 1, ModifySpe: 1,
+					ModifyAtk: 1, ModifyDef: 1, ModifySpA: 1, ModifySpD: 1, ModifySpe: 1, ModifyAccuracy: 1,
 					ModifyBoost: 1,
 					ModifyDamage: 1,
+					ModifySecondaries: 1,
 					ModifyWeight: 1,
 					TryHit: 1,
 					TryHitSide: 1,
 					TryMove: 1,
-					TrySecondaryHit: 1,
 					Hit: 1,
 					Boost: 1,
 					DragOut: 1
@@ -2749,8 +2790,15 @@ Battle = (function () {
 		}
 		if (side.active[pos]) {
 			var oldActive = side.active[pos];
-			var lastMove = null;
-			lastMove = this.getMove(oldActive.lastMove);
+			if (this.cancelMove(oldActive)) {
+				for (var i = 0; i < side.foe.active.length; i++) {
+					if (side.foe.active[i].isStale >= 2) {
+						oldActive.isStaleCon++;
+						oldActive.isStaleSource = 'drag';
+						break;
+					}
+				}
+			}
 			if (oldActive.switchCopyFlag === 'copyvolatile') {
 				delete oldActive.switchCopyFlag;
 				pokemon.copyVolatileFrom(oldActive);
@@ -2767,13 +2815,7 @@ Battle = (function () {
 			pokemon.position = pos;
 			side.pokemon[pokemon.position] = pokemon;
 			side.pokemon[oldActive.position] = oldActive;
-			if (this.cancelMove(oldActive)) {
-				for (var i = 0; i < side.foe.active.length; i++) {
-					if (side.foe.active[i].isStale) {
-						oldActive.isNearlyStale = true;
-					}
-				}
-			}
+			this.cancelMove(oldActive);
 			oldActive.clearVolatile();
 		}
 		side.active[pos] = pokemon;
@@ -2831,7 +2873,15 @@ Battle = (function () {
 			pokemon.position = pos;
 			side.pokemon[pokemon.position] = pokemon;
 			side.pokemon[oldActive.position] = oldActive;
-			this.cancelMove(oldActive);
+			if (this.cancelMove(oldActive)) {
+				for (var i = 0; i < side.foe.active.length; i++) {
+					if (side.foe.active[i].isStale >= 2) {
+						oldActive.isStaleCon++;
+						oldActive.isStaleSource = 'drag';
+						break;
+					}
+				}
+			}
 			oldActive.clearVolatile();
 		}
 		side.active[pos] = pokemon;
@@ -2899,46 +2949,129 @@ Battle = (function () {
 					}
 				}
 
-				if (pokemon.hp >= pokemon.isStaleHP) {
-					if (pokemon.isNearlyStale) {
-						pokemon.isStale = true;
+				if (pokemon.fainted) continue;
+				if (pokemon.isStale < 2) {
+					if (pokemon.isStaleCon >= 2) {
+						if (pokemon.hp >= pokemon.isStaleHP - pokemon.maxhp / 100) {
+							pokemon.isStale++;
+							if (this.firstStaleWarned && pokemon.isStale < 2) {
+								switch (pokemon.isStaleSource) {
+								case 'struggle':
+									this.add('html', '<div class="broadcast-red">' + this.escapeHTML(pokemon.name) + ' isn\'t losing HP from Struggle. If this continues, it will be classified as being in an endless loop.</div>');
+									break;
+								case 'drag':
+									this.add('html', '<div class="broadcast-red">' + this.escapeHTML(pokemon.name) + ' isn\'t losing PP or HP from being forced to switch. If this continues, it will be classified as being in an endless loop.</div>');
+									break;
+								case 'switch':
+									this.add('html', '<div class="broadcast-red">' + this.escapeHTML(pokemon.name) + ' isn\'t losing PP or HP from repeatedly switching. If this continues, it will be classified as being in an endless loop.</div>');
+									break;
+								}
+							}
+						}
+						pokemon.isStaleCon = 0;
+						pokemon.isStalePPTurns = 0;
+						pokemon.isStaleHP = pokemon.hp;
+					}
+					if (pokemon.isStalePPTurns >= 5) {
+						if (pokemon.hp >= pokemon.isStaleHP - pokemon.maxhp / 100) {
+							pokemon.isStale++;
+							pokemon.isStaleSource = 'ppstall';
+							if (this.firstStaleWarned && pokemon.isStale < 2) {
+								this.add('html', '<div class="broadcast-red">' + this.escapeHTML(pokemon.name) + ' isn\'t losing PP or HP. If it keeps on not losing PP or HP, it will be classified as being in an endless loop.</div>');
+							}
+						}
+						pokemon.isStaleCon = 0;
+						pokemon.isStalePPTurns = 0;
+						pokemon.isStaleHP = pokemon.hp;
 					}
 				}
-				pokemon.isStaleHP = pokemon.hp;
-				pokemon.isNearlyStale = (pokemon.getMoves().length === 0);
-				if (!pokemon.isStale && !pokemon.fainted) {
+				if (pokemon.getMoves().length === 0) {
+					pokemon.isStaleCon++;
+					pokemon.isStaleSource = 'struggle';
+				}
+				if (pokemon.isStale < 2) {
 					allStale = false;
-				} else if (pokemon.isStale) {
+				} else if (pokemon.isStale && !pokemon.staleWarned) {
 					oneStale = pokemon;
+				}
+				if (!pokemon.isStalePPTurns) {
+					pokemon.isStaleHP = pokemon.hp;
+					if (pokemon.activeTurns) pokemon.isStaleCon = 0;
+				}
+				if (pokemon.activeTurns) {
+					pokemon.isStalePPTurns++;
 				}
 				pokemon.activeTurns++;
 			}
 			this.sides[i].faintedLastTurn = this.sides[i].faintedThisTurn;
 			this.sides[i].faintedThisTurn = false;
 		}
-		this.add('turn', this.turn);
 		var banlistTable = this.getFormat().banlistTable;
-		if (allStale && banlistTable && 'Rule:endlessbattleclause' in banlistTable) {
-			var nonLeppaSide = null;
-			for (var i = 0; i < this.sides.length; i++) {
-				for (var j = 0; j < this.sides[i].active.length; j++) {
-					var pokemon = this.sides[i].active[j];
-					if (toId(pokemon.set.item) === 'leppaberry') {
-						if (nonLeppaSide) {
-							nonLeppaSide = null; // both sides have Leppa
-						} else {
-							nonLeppaSide = pokemon.side.foe;
+		if (banlistTable && 'Rule:endlessbattleclause' in banlistTable) {
+			if (oneStale) {
+				var activationWarning = '<br />If all active Pok&eacute;mon go in an endless loop, Endless Battle Clause will activate.';
+				if (allStale) activationWarning = '';
+				var loopReason = '';
+				switch (oneStale.isStaleSource) {
+				case 'struggle':
+					loopReason = ": it isn't losing HP from Struggle";
+					break;
+				case 'drag':
+					loopReason = ": it isn't losing PP or HP from being forced to switch";
+					break;
+				case 'switch':
+					loopReason = ": it isn't losing PP or HP from repeatedly switching";
+					break;
+				case 'getleppa':
+					loopReason = ": it got a Leppa Berry it didn't start with";
+					break;
+				case 'useleppa':
+					loopReason = ": it used a Leppa Berry it didn't start with";
+					break;
+				case 'ppstall':
+					loopReason = ": it isn't losing PP or HP";
+					break;
+				case 'ppoverflow':
+					loopReason = ": its PP overflowed";
+					break;
+				}
+				this.add('html', '<div class="broadcast-red">' + this.escapeHTML(oneStale.name) + ' is in an endless loop' + loopReason + '.' + activationWarning + '</div>');
+				oneStale.staleWarned = true;
+				this.firstStaleWarned = true;
+			}
+			if (allStale) {
+				this.add('message', "All active Pok\u00e9mon are in an endless loop. Endless Battle Clause activated!");
+				var leppaPokemon = null;
+				for (var i = 0; i < this.sides.length; i++) {
+					for (var j = 0; j < this.sides[i].pokemon.length; j++) {
+						var pokemon = this.sides[i].pokemon[j];
+						if (toId(pokemon.set.item) === 'leppaberry') {
+							if (leppaPokemon) {
+								leppaPokemon = null; // both sides have Leppa
+								this.add('-message', "Both sides started with a Leppa Berry.");
+							} else {
+								leppaPokemon = pokemon;
+							}
+							break;
 						}
-						break;
 					}
 				}
+				if (leppaPokemon) {
+					this.add('-message', "" + leppaPokemon.side.name + "'s " + leppaPokemon.name + " started with a Leppa Berry and loses.");
+					this.win(leppaPokemon.side.foe);
+					return;
+				}
+				this.win();
+				return;
 			}
-			if (!nonLeppaSide && this.staleWarned) nonLeppaSide = this.staleWarned.side;
-			this.add('message', "All active Pok\u00e9mon are in an endless loop. Endless Battle Clause activated!");
-			this.win(nonLeppaSide);
-		} else if (oneStale && !this.staleWarned) {
-			this.add('html', '<div class="broadcast-red">' + this.escapeHTML(oneStale.name) + ' is in an endless loop. If all active Pok&eacute;mon go in an endless loop, Endless Battle Clause will activate.</div>');
-			this.staleWarned = oneStale;
+		} else {
+			if (allStale && !this.staleWarned) {
+				this.staleWarned = true;
+				this.add('html', '<div class="broadcast-red">If this format had Endless Battle Clause, it would have activated.</div>');
+			} else if (oneStale) {
+				this.add('html', '<div class="broadcast-red">' + this.escapeHTML(oneStale.name) + ' is in an endless loop.</div>');
+				oneStale.staleWarned = true;
+			}
 		}
 
 		if (this.gameType === 'triples' && this.sides.map('pokemonLeft').count(1) === this.sides.length) {
@@ -2955,6 +3088,9 @@ Battle = (function () {
 			}
 			if (center) this.add('-center');
 		}
+
+		this.add('turn', this.turn);
+
 		this.makeRequest('move');
 	};
 	Battle.prototype.start = function () {
@@ -2990,6 +3126,7 @@ Battle = (function () {
 		if (this.rated) {
 			this.add('rated');
 		}
+		this.add('seed', Battle.logReplay.bind(this, this.startingSeed.join(',')));
 		if (format && format.ruleset) {
 			for (var i = 0; i < format.ruleset.length; i++) {
 				this.addPseudoWeather(format.ruleset[i]);
@@ -3018,6 +3155,7 @@ Battle = (function () {
 		effect = this.getEffect(effect);
 		boost = this.runEvent('Boost', target, source, effect, Object.clone(boost));
 		var success = false;
+		var boosted = false;
 		for (var i in boost) {
 			var currentBoost = {};
 			currentBoost[i] = boost[i];
@@ -3030,7 +3168,11 @@ Battle = (function () {
 				}
 				switch (effect.id) {
 				case 'bellydrum':
-					// No message
+					this.add('-setboost', target, 'atk', target.boosts['atk'], '[from] move: Belly Drum');
+					break;
+				case 'bellydrum2':
+					this.add(msg, target, i, boost[i], '[silent]');
+					this.add('-hint', "In Gen 2, Belly Drum boosts by 2 when it fails.");
 					break;
 				case 'intimidate': case 'gooey':
 					this.add(msg, target, i, boost[i]);
@@ -3039,6 +3181,10 @@ Battle = (function () {
 					if (effect.effectType === 'Move') {
 						this.add(msg, target, i, boost[i]);
 					} else {
+						if (effect.effectType === 'Ability' && !boosted) {
+							this.add('-activate', target, effect.fullname);
+							boosted = true;
+						}
 						this.add(msg, target, i, boost[i], '[from] ' + effect.fullname);
 					}
 					break;
@@ -3095,7 +3241,7 @@ Battle = (function () {
 		default:
 			if (effect.effectType === 'Move') {
 				this.add('-damage', target, target.getHealth);
-			} else if (source && source !== target) {
+			} else if (source && (source !== target || effect.effectType === 'Ability')) {
 				this.add('-damage', target, target.getHealth, '[from] ' + effect.fullname, '[of] ' + source);
 			} else {
 				this.add('-damage', target, target.getHealth, '[from] ' + name);
@@ -3362,16 +3508,16 @@ Battle = (function () {
 			baseDamage = this.modify(baseDamage, spreadModifier);
 		}
 
-		// weather modifier (TODO: relocate here)
+		// weather modifier
+		baseDamage = this.runEvent('WeatherModifyDamage', pokemon, target, move, baseDamage);
+
 		// crit
 		if (move.crit) {
-			if (!suppressMessages) this.add('-crit', target);
 			baseDamage = this.modify(baseDamage, move.critModifier || (this.gen >= 6 ? 1.5 : 2));
 		}
 
-		// randomizer
 		// this is not a modifier
-		baseDamage = Math.floor(baseDamage * (100 - this.random(16)) / 100);
+		baseDamage = this.randomizer(baseDamage);
 
 		// STAB
 		if (move.hasSTAB || type !== '???' && pokemon.hasType(type)) {
@@ -3400,6 +3546,8 @@ Battle = (function () {
 			}
 		}
 
+		if (move.crit && !suppressMessages) this.add('-crit', target);
+
 		if (pokemon.status === 'brn' && basePower && move.category === 'Physical' && !pokemon.hasAbility('guts')) {
 			if (this.gen < 6 || move.id !== 'facade') {
 				baseDamage = this.modify(baseDamage, 0.5);
@@ -3419,6 +3567,9 @@ Battle = (function () {
 		}
 
 		return Math.floor(baseDamage);
+	};
+	Battle.prototype.randomizer = function (baseDamage) {
+		return Math.floor(baseDamage * (100 - this.random(16)) / 100);
 	};
 	/**
 	 * Returns whether a proposed target for a move is valid.
@@ -3732,8 +3883,17 @@ Battle = (function () {
 		switch (decision.choice) {
 		case 'start':
 			// I GIVE UP, WILL WRESTLE WITH EVENT SYSTEM LATER
-			var beginCallback = this.getFormat().onBegin;
-			if (beginCallback) beginCallback.call(this);
+			var format = this.getFormat();
+
+			if (format.onBegin) format.onBegin.call(this);
+
+			if (format.teamLength && format.teamLength.battle) {
+				// Trim the team: not all of the Pokémon brought to Preview will battle.
+				this.p1.pokemon = this.p1.pokemon.slice(0, format.teamLength.battle);
+				this.p1.pokemonLeft = this.p1.pokemon.length;
+				this.p2.pokemon = this.p2.pokemon.slice(0, format.teamLength.battle);
+				this.p2.pokemonLeft = this.p2.pokemon.length;
+			}
 
 			this.add('start');
 			for (var pos = 0; pos < this.p1.active.length; pos++) {
@@ -3796,6 +3956,9 @@ Battle = (function () {
 				var lastMove = this.getMove(decision.pokemon.lastMove);
 				if (lastMove.selfSwitch !== 'copyvolatile') {
 					this.runEvent('BeforeSwitchOut', decision.pokemon);
+					if (this.gen >= 5) {
+						this.eachEvent('Update');
+					}
 				}
 				if (!this.runEvent('SwitchOut', decision.pokemon)) {
 					// Warning: DO NOT interrupt a switch-out
@@ -3827,6 +3990,16 @@ Battle = (function () {
 				this.debug('Switch target is already active');
 				break;
 			}
+			if (decision.choice === 'switch' && decision.pokemon.activeTurns === 1) {
+				var foeActive = decision.pokemon.side.foe.active;
+				for (var i = 0; i < foeActive.length; i++) {
+					if (foeActive[i].isStale >= 2) {
+						decision.pokemon.isStaleCon++;
+						decision.pokemon.isStaleSource = 'switch';
+						break;
+					}
+				}
+			}
 			this.switchIn(decision.target, decision.pokemon.position);
 			break;
 		case 'runSwitch':
@@ -3843,7 +4016,16 @@ Battle = (function () {
 		case 'shift':
 			if (!decision.pokemon.isActive) return false;
 			if (decision.pokemon.fainted) return false;
+			decision.pokemon.activeTurns--;
 			this.swapPosition(decision.pokemon, 1);
+			var foeActive = decision.pokemon.side.foe.active;
+			for (var i = 0; i < foeActive.length; i++) {
+				if (foeActive[i].isStale >= 2) {
+					decision.pokemon.isStaleCon++;
+					decision.pokemon.isStaleSource = 'switch';
+					break;
+				}
+			}
 			break;
 		case 'beforeTurn':
 			this.eachEvent('BeforeTurn');
@@ -3974,17 +4156,13 @@ Battle = (function () {
 			return;
 		}
 
-		// It should be impossible for choice not to be a string. Choice comes
-		// from splitting the string sent by our forked process, not from the
-		// client. However, just in case, we maintain this check for now.
-		if (typeof choice === 'string') choice = choice.split(',');
-
 		if (side.decision && side.decision.finalDecision) {
 			this.debug("Can't override decision: the last pokemon could have been trapped or disabled");
 			return;
 		}
 
-		side.decision = this.parseChoice(choice, side);
+		side.decision = this.parseChoice(choice.split(','), side);
+		side.choice = choice;
 
 		if (this.p1.decision && this.p2.decision) {
 			this.commitDecisions();
@@ -3993,12 +4171,13 @@ Battle = (function () {
 	Battle.prototype.commitDecisions = function () {
 		var oldQueue = this.queue;
 		this.queue = [];
-		if (this.p1.decision !== true) {
-			this.addQueue(this.p1.resolveDecision());
+		for (var i = 0; i < this.sides.length; i++) {
+			this.sides[i].resolveDecision();
+			if (this.sides[i].decision === true) continue;
+			this.addQueue(this.sides[i].decision);
 		}
-		if (this.p2.decision !== true) {
-			this.addQueue(this.p2.resolveDecision());
-		}
+		this.add('choice', this.p1.getChoice, this.p2.getChoice);
+
 		this.sortQueue();
 		Array.prototype.push.apply(this.queue, oldQueue);
 

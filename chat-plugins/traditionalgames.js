@@ -6,7 +6,7 @@
 
 var http = require('http');
 
-function wikiaSearch (subdomain, query, callback) {
+function wikiaSearch(subdomain, query, callback) {
 	http.get('http://' + subdomain + '.wikia.com/api/v1/Search/List/?query=' + encodeURIComponent(query) + '&limit=1', function (res) {
 		var buffer = '';
 		res.setEncoding('utf8');
@@ -34,7 +34,7 @@ exports.commands = {
 	mtg: 'yugioh',
 	magic: 'yugioh',
 	yugioh: function (target, room, user, connection, cmd) {
-		if (room.id !== 'traditionalgames') return this.sendReply("This command can only be used in the Traditional Games room.");
+		if (room.id !== 'traditionalgames') return this.errorReply("This command can only be used in the Traditional Games room.");
 		if (!this.canBroadcast()) return;
 		var broadcasting = this.broadcasting;
 		var subdomain = (cmd === 'yugioh' || cmd === 'ygo') ? 'yugioh' : 'mtg';

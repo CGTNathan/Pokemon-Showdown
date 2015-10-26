@@ -102,7 +102,7 @@ exports.BattleAbilities = {
 		onBasePower: function (basePower, attacker, defender, move) {
 			if (!this.willMove(defender)) {
 				this.debug('Analytic boost');
-				return this.chainModify([0x14CD, 0x1000]); // The Analytic modifier is slightly higher than the normal 1.3 (0x14CC)
+				return this.chainModify([0x14CD, 0x1000]);
 			}
 		},
 		id: "analytic",
@@ -135,7 +135,7 @@ exports.BattleAbilities = {
 				for (var j = 0; j < targets[i].moveset.length; j++) {
 					var move = this.getMove(targets[i].moveset[j].move);
 					if (move.category !== 'Status' && (this.getImmunity(move.type, pokemon) && this.getEffectiveness(move.type, pokemon) > 0 || move.ohko)) {
-						this.add('-activate', pokemon, 'ability: Anticipation');
+						this.add('-ability', pokemon, 'Anticipation');
 						return;
 					}
 				}
@@ -172,7 +172,8 @@ exports.BattleAbilities = {
 		shortDesc: "Protects user/allies from Attract, Disable, Encore, Heal Block, Taunt, and Torment.",
 		onAllyTryHit: function (target, source, move) {
 			if (move && move.id in {attract:1, disable:1, encore:1, healblock:1, taunt:1, torment:1}) {
-				return false;
+				this.add('-activate', this.effectData.target, 'ability: Aroma Veil', '[of] ' + target);
+				return null;
 			}
 		},
 		id: "aromaveil",
@@ -209,7 +210,7 @@ exports.BattleAbilities = {
 				var target = pokemon.side.foe.active[i];
 				if (!target || !target.hp) continue;
 				if (target.status === 'slp') {
-					this.damage(target.maxhp / 8, target);
+					this.damage(target.maxhp / 8, target, pokemon);
 				}
 			}
 		},
@@ -266,7 +267,7 @@ exports.BattleAbilities = {
 		shortDesc: "This Pokemon is immune to bullet moves.",
 		onTryHit: function (pokemon, target, move) {
 			if (move.flags['bullet']) {
-				this.add('-immune', pokemon, '[msg]', '[from] Bulletproof');
+				this.add('-immune', pokemon, '[msg]', '[from] ability: Bulletproof');
 				return null;
 			}
 		},
@@ -288,9 +289,9 @@ exports.BattleAbilities = {
 	},
 	"chlorophyll": {
 		shortDesc: "If Sunny Day is active, this Pokemon's Speed is doubled.",
-		onModifySpe: function (speMod) {
+		onModifySpe: function (spe) {
 			if (this.isWeather(['sunnyday', 'desolateland'])) {
-				return this.chain(speMod, 2);
+				return this.chainModify(2);
 			}
 		},
 		id: "chlorophyll",
@@ -462,13 +463,13 @@ exports.BattleAbilities = {
 		shortDesc: "While this Pokemon has 1/2 or less of its max HP, its Attack and Sp. Atk are halved.",
 		onModifyAtkPriority: 5,
 		onModifyAtk: function (atk, pokemon) {
-			if (pokemon.hp < pokemon.maxhp / 2) {
+			if (pokemon.hp <= pokemon.maxhp / 2) {
 				return this.chainModify(0.5);
 			}
 		},
 		onModifySpAPriority: 5,
 		onModifySpA: function (atk, pokemon) {
-			if (pokemon.hp < pokemon.maxhp / 2) {
+			if (pokemon.hp <= pokemon.maxhp / 2) {
 				return this.chainModify(0.5);
 			}
 		},
@@ -588,7 +589,7 @@ exports.BattleAbilities = {
 		},
 		id: "drizzle",
 		name: "Drizzle",
-		rating: 4,
+		rating: 4.5,
 		num: 2
 	},
 	"drought": {
@@ -598,7 +599,7 @@ exports.BattleAbilities = {
 		},
 		id: "drought",
 		name: "Drought",
-		rating: 4,
+		rating: 4.5,
 		num: 70
 	},
 	"dryskin": {
@@ -607,7 +608,7 @@ exports.BattleAbilities = {
 		onTryHit: function (target, source, move) {
 			if (target !== source && move.type === 'Water') {
 				if (!this.heal(target.maxhp / 4)) {
-					this.add('-immune', target, '[msg]');
+					this.add('-immune', target, '[msg]', '[from] ability: Dry Skin');
 				}
 				return null;
 			}
@@ -623,7 +624,7 @@ exports.BattleAbilities = {
 			if (effect.id === 'raindance' || effect.id === 'primordialsea') {
 				this.heal(target.maxhp / 8);
 			} else if (effect.id === 'sunnyday' || effect.id === 'desolateland') {
-				this.damage(target.maxhp / 8);
+				this.damage(target.maxhp / 8, target, target);
 			}
 		},
 		id: "dryskin",
@@ -724,7 +725,7 @@ exports.BattleAbilities = {
 			if (target !== source && move.type === 'Fire') {
 				move.accuracy = true;
 				if (!target.addVolatile('flashfire')) {
-					this.add('-immune', target, '[msg]');
+					this.add('-immune', target, '[msg]', '[from] ability: Flash Fire');
 				}
 				return null;
 			}
@@ -782,14 +783,14 @@ exports.BattleAbilities = {
 		},
 		onModifyAtkPriority: 3,
 		onAllyModifyAtk: function (atk) {
-			if (this.effectData.target.template.speciesid !== 'cherrim') return;
+			if (this.effectData.target.baseTemplate.speciesid !== 'cherrim') return;
 			if (this.isWeather(['sunnyday', 'desolateland'])) {
 				return this.chainModify(1.5);
 			}
 		},
 		onModifySpDPriority: 4,
 		onAllyModifySpD: function (spd) {
-			if (this.effectData.target.template.speciesid !== 'cherrim') return;
+			if (this.effectData.target.baseTemplate.speciesid !== 'cherrim') return;
 			if (this.isWeather(['sunnyday', 'desolateland'])) {
 				return this.chainModify(1.5);
 			}
@@ -811,10 +812,13 @@ exports.BattleAbilities = {
 					showMsg = true;
 				}
 			}
-			if (showMsg && !effect.secondaries) this.add("-fail", target, "unboost", "[from] ability: Flower Veil", "[of] " + target);
+			if (showMsg && !effect.secondaries) this.add('-fail', this.effectData.target, 'unboost', '[from] ability: Flower Veil', '[of] ' + target);
 		},
 		onAllySetStatus: function (status, target) {
-			if (target.hasType('Grass')) return false;
+			if (target.hasType('Grass')) {
+				this.add('-activate', this.effectData.target, 'ability: Flower Veil', '[of] ' + target);
+				return null;
+			}
 		},
 		id: "flowerveil",
 		name: "Flower Veil",
@@ -878,7 +882,7 @@ exports.BattleAbilities = {
 			}
 			if (!warnMoves.length) return;
 			var warnMove = warnMoves[this.random(warnMoves.length)];
-			this.add('-activate', pokemon, 'ability: Forewarn', warnMove[0], warnMove[1]);
+			this.add('-activate', pokemon, 'ability: Forewarn', warnMove[0], '[of] ' + warnMove[1]);
 		},
 		id: "forewarn",
 		name: "Forewarn",
@@ -1089,6 +1093,7 @@ exports.BattleAbilities = {
 		onResidual: function (pokemon) {
 			if (pokemon.status && this.isWeather(['raindance', 'primordialsea'])) {
 				this.debug('hydration');
+				this.add('-activate', pokemon, 'ability: Hydration');
 				pokemon.cureStatus();
 			}
 		},
@@ -1158,6 +1163,7 @@ exports.BattleAbilities = {
 		shortDesc: "This Pokemon cannot be poisoned. Gaining this Ability while poisoned cures it.",
 		onUpdate: function (pokemon) {
 			if (pokemon.status === 'psn' || pokemon.status === 'tox') {
+				this.add('-activate', pokemon, 'ability: Immunity');
 				pokemon.cureStatus();
 			}
 		},
@@ -1175,7 +1181,7 @@ exports.BattleAbilities = {
 		onStart: function (pokemon) {
 			var target = pokemon.side.foe.active[pokemon.side.foe.active.length - 1 - pokemon.position];
 			if (target) {
-				pokemon.transformInto(target, pokemon);
+				pokemon.transformInto(target, pokemon, this.getAbility('imposter'));
 			}
 		},
 		id: "imposter",
@@ -1206,6 +1212,7 @@ exports.BattleAbilities = {
 		shortDesc: "This Pokemon cannot fall asleep. Gaining this Ability while asleep cures it.",
 		onUpdate: function (pokemon) {
 			if (pokemon.status === 'slp') {
+				this.add('-activate', pokemon, 'ability: Insomnia');
 				pokemon.cureStatus();
 			}
 		},
@@ -1262,7 +1269,7 @@ exports.BattleAbilities = {
 		onBasePower: function (basePower, attacker, defender, move) {
 			if (move.flags['punch']) {
 				this.debug('Iron Fist boost');
-				return this.chainModify(1.2);
+				return this.chainModify([0x1333, 0x1000]);
 			}
 		},
 		id: "ironfist",
@@ -1354,7 +1361,7 @@ exports.BattleAbilities = {
 		onTryHit: function (target, source, move) {
 			if (target !== source && move.type === 'Electric') {
 				if (!this.boost({spa:1})) {
-					this.add('-immune', target, '[msg]');
+					this.add('-immune', target, '[msg]', '[from] ability: Lightning Rod');
 				}
 				return null;
 			}
@@ -1375,6 +1382,7 @@ exports.BattleAbilities = {
 		shortDesc: "This Pokemon cannot be paralyzed. Gaining this Ability while paralyzed cures it.",
 		onUpdate: function (pokemon) {
 			if (pokemon.status === 'par') {
+				this.add('-activate', pokemon, 'ability: Limber');
 				pokemon.cureStatus();
 			}
 		},
@@ -1469,6 +1477,7 @@ exports.BattleAbilities = {
 		shortDesc: "This Pokemon cannot be frozen. Gaining this Ability while frozen cures it.",
 		onUpdate: function (pokemon) {
 			if (pokemon.status === 'frz') {
+				this.add('-activate', pokemon, 'ability: Magma Armor');
 				pokemon.cureStatus();
 			}
 		},
@@ -1598,7 +1607,7 @@ exports.BattleAbilities = {
 		onTryHit: function (target, source, move) {
 			if (target !== source && move.type === 'Electric') {
 				if (!this.boost({spe:1})) {
-					this.add('-immune', target, '[msg]');
+					this.add('-immune', target, '[msg]', '[from] ability: Motor Drive');
 				}
 				return null;
 			}
@@ -1651,8 +1660,7 @@ exports.BattleAbilities = {
 			if (source && source !== target && move && move.flags['contact']) {
 				var oldAbility = source.setAbility('mummy', source, 'mummy', true);
 				if (oldAbility) {
-					this.add('-endability', source, oldAbility, '[from] Mummy');
-					this.add('-ability', source, 'Mummy', '[from] Mummy');
+					this.add('-activate', target, 'ability: Mummy', oldAbility, '[of] ' + source);
 				}
 			}
 		},
@@ -1701,23 +1709,25 @@ exports.BattleAbilities = {
 		shortDesc: "This Pokemon cannot be infatuated or taunted. Gaining this Ability cures it.",
 		onUpdate: function (pokemon) {
 			if (pokemon.volatiles['attract']) {
+				this.add('-activate', pokemon, 'ability: Oblivious');
 				pokemon.removeVolatile('attract');
 				this.add('-end', pokemon, 'move: Attract', '[from] ability: Oblivious');
 			}
 			if (pokemon.volatiles['taunt']) {
+				this.add('-activate', pokemon, 'ability: Oblivious');
 				pokemon.removeVolatile('taunt');
 				// Taunt's volatile already sends the -end message when removed
 			}
 		},
 		onImmunity: function (type, pokemon) {
 			if (type === 'attract') {
-				this.add('-immune', pokemon, '[from] Oblivious');
-				return false;
+				this.add('-immune', pokemon, '[msg]', '[from] ability: Oblivious');
+				return null;
 			}
 		},
 		onTryHit: function (pokemon, target, move) {
 			if (move.id === 'captivate' || move.id === 'taunt') {
-				this.add('-immune', pokemon, '[msg]', '[from] Oblivious');
+				this.add('-immune', pokemon, '[msg]', '[from] ability: Oblivious');
 				return null;
 			}
 		},
@@ -1779,10 +1789,11 @@ exports.BattleAbilities = {
 	"parentalbond": {
 		desc: "This Pokemon's damaging moves become multi-hit moves that hit twice. The second hit has its damage halved. Does not affect multi-hit moves or moves that have multiple targets.",
 		shortDesc: "This Pokemon's damaging moves hit twice. The second hit has its damage halved.",
-		onModifyMove: function (move, pokemon, target) {
-			if (move.category !== 'Status' && !move.selfdestruct && !move.multihit && ((target.side && target.side.active.length < 2) || move.target in {any:1, normal:1, randomNormal:1})) {
+		onPrepareHit: function (source, target, move) {
+			if (move.id in {iceball: 1, rollout: 1}) return;
+			if (move.category !== 'Status' && !move.selfdestruct && !move.multihit && !move.flags['charge'] && !move.spreadHit) {
 				move.multihit = 2;
-				pokemon.addVolatile('parentalbond');
+				source.addVolatile('parentalbond');
 			}
 		},
 		effect: {
@@ -2030,9 +2041,9 @@ exports.BattleAbilities = {
 	"quickfeet": {
 		desc: "If this Pokemon has a major status condition, its Speed is multiplied by 1.5; the Speed drop from paralysis is ignored.",
 		shortDesc: "If this Pokemon is statused, its Speed is 1.5x; ignores Speed drop from paralysis.",
-		onModifySpe: function (speMod, pokemon) {
+		onModifySpe: function (spe, pokemon) {
 			if (pokemon.status) {
-				return this.chain(speMod, 1.5);
+				return this.chainModify(1.5);
 			}
 		},
 		id: "quickfeet",
@@ -2073,7 +2084,7 @@ exports.BattleAbilities = {
 		onBasePower: function (basePower, attacker, defender, move) {
 			if (move.recoil || move.hasCustomRecoil) {
 				this.debug('Reckless boost');
-				return this.chainModify(1.2);
+				return this.chainModify([0x1333, 0x1000]);
 			}
 		},
 		id: "reckless",
@@ -2173,7 +2184,7 @@ exports.BattleAbilities = {
 			if (this.isWeather('sandstorm')) {
 				if (move.type === 'Rock' || move.type === 'Ground' || move.type === 'Steel') {
 					this.debug('Sand Force boost');
-					return this.chainModify([0x14CD, 0x1000]); // The Sand Force modifier is slightly higher than the normal 1.3 (0x14CC)
+					return this.chainModify([0x14CD, 0x1000]);
 				}
 			}
 		},
@@ -2188,9 +2199,9 @@ exports.BattleAbilities = {
 	"sandrush": {
 		desc: "If Sandstorm is active, this Pokemon's Speed is doubled. This Pokemon takes no damage from Sandstorm.",
 		shortDesc: "If Sandstorm is active, this Pokemon's Speed is doubled; immunity to Sandstorm.",
-		onModifySpe: function (speMod, pokemon) {
+		onModifySpe: function (spe, pokemon) {
 			if (this.isWeather('sandstorm')) {
-				return this.chain(speMod, 2);
+				return this.chainModify(2);
 			}
 		},
 		onImmunity: function (type, pokemon) {
@@ -2208,7 +2219,7 @@ exports.BattleAbilities = {
 		},
 		id: "sandstream",
 		name: "Sand Stream",
-		rating: 4,
+		rating: 4.5,
 		num: 45
 	},
 	"sandveil": {
@@ -2235,7 +2246,7 @@ exports.BattleAbilities = {
 		onTryHit: function (target, source, move) {
 			if (target !== source && move.type === 'Grass') {
 				if (!this.boost({atk:1})) {
-					this.add('-immune', target, '[msg]');
+					this.add('-immune', target, '[msg]', '[from] ability: Sap Sipper');
 				}
 				return null;
 			}
@@ -2268,6 +2279,7 @@ exports.BattleAbilities = {
 	},
 	"serenegrace": {
 		shortDesc: "This Pokemon's moves have their secondary effect chance doubled.",
+		onModifyMovePriority: -2,
 		onModifyMove: function (move) {
 			if (move.secondaries && move.id !== 'secretpower') {
 				this.debug('doubling secondary chance');
@@ -2331,7 +2343,7 @@ exports.BattleAbilities = {
 			duration: 1,
 			onBasePowerPriority: 8,
 			onBasePower: function (basePower, pokemon, target, move) {
-				return this.chainModify([0x14CD, 0x1000]); // The Sheer Force modifier is slightly higher than the normal 1.3 (0x14CC)
+				return this.chainModify([0x14CD, 0x1000]);
 			}
 		},
 		id: "sheerforce",
@@ -2349,9 +2361,11 @@ exports.BattleAbilities = {
 	},
 	"shielddust": {
 		shortDesc: "This Pokemon is not affected by the secondary effect of another Pokemon's attack.",
-		onTrySecondaryHit: function () {
+		onModifySecondaries: function (secondaries) {
 			this.debug('Shield Dust prevent secondary');
-			return null;
+			return secondaries.filter(function (effect) {
+				return !!effect.self;
+			});
 		},
 		id: "shielddust",
 		name: "Shield Dust",
@@ -2400,8 +2414,8 @@ exports.BattleAbilities = {
 			onModifyAtk: function (atk, pokemon) {
 				return this.chainModify(0.5);
 			},
-			onModifySpe: function (speMod, pokemon) {
-				return this.chain(speMod, 0.5);
+			onModifySpe: function (spe, pokemon) {
+				return this.chainModify(0.5);
 			},
 			onEnd: function (target) {
 				this.add('-end', target, 'Slow Start');
@@ -2450,7 +2464,7 @@ exports.BattleAbilities = {
 		},
 		id: "snowwarning",
 		name: "Snow Warning",
-		rating: 3.5,
+		rating: 4,
 		num: 117
 	},
 	"solarpower": {
@@ -2464,7 +2478,7 @@ exports.BattleAbilities = {
 		},
 		onWeather: function (target, source, effect) {
 			if (effect.id === 'sunnyday' || effect.id === 'desolateland') {
-				this.damage(target.maxhp / 8);
+				this.damage(target.maxhp / 8, target, target);
 			}
 		},
 		id: "solarpower",
@@ -2489,7 +2503,7 @@ exports.BattleAbilities = {
 		shortDesc: "This Pokemon is immune to sound-based moves, including Heal Bell.",
 		onTryHit: function (target, source, move) {
 			if (target !== source && move.flags['sound']) {
-				this.add('-immune', target, '[msg]');
+				this.add('-immune', target, '[msg]', '[from] ability: Soundproof');
 				return null;
 			}
 		},
@@ -2604,7 +2618,7 @@ exports.BattleAbilities = {
 		onTryHit: function (target, source, move) {
 			if (target !== source && move.type === 'Water') {
 				if (!this.boost({spa:1})) {
-					this.add('-immune', target, '[msg]');
+					this.add('-immune', target, '[msg]', '[from] ability: Storm Drain');
 				}
 				return null;
 			}
@@ -2641,14 +2655,14 @@ exports.BattleAbilities = {
 		shortDesc: "If this Pokemon is at full HP, it survives one hit with at least 1 HP. Immune to OHKO.",
 		onTryHit: function (pokemon, target, move) {
 			if (move.ohko) {
-				this.add('-immune', pokemon, '[msg]');
+				this.add('-immune', pokemon, '[msg]', '[from] ability: Sturdy');
 				return null;
 			}
 		},
 		onDamagePriority: -100,
 		onDamage: function (damage, target, source, effect) {
 			if (target.hp === target.maxhp && damage >= target.hp && effect && effect.effectType === 'Move') {
-				this.add('-activate', target, 'Sturdy');
+				this.add('-ability', target, 'Sturdy');
 				return target.hp - 1;
 			}
 		},
@@ -2708,13 +2722,15 @@ exports.BattleAbilities = {
 		onAllySetStatus: function (status, target, source, effect) {
 			if (status.id === 'slp') {
 				this.debug('Sweet Veil interrupts sleep');
-				return false;
+				this.add('-activate', this.effectData.target, 'ability: Sweet Veil', '[of] ' + target);
+				return null;
 			}
 		},
 		onAllyTryHit: function (target, source, move) {
 			if (move && move.id === 'yawn') {
 				this.debug('Sweet Veil blocking yawn');
-				return false;
+				this.add('-activate', this.effectData.target, 'ability: Sweet Veil', '[of] ' + target);
+				return null;
 			}
 		},
 		rating: 2,
@@ -2722,9 +2738,9 @@ exports.BattleAbilities = {
 	},
 	"swiftswim": {
 		shortDesc: "If Rain Dance is active, this Pokemon's Speed is doubled.",
-		onModifySpe: function (speMod, pokemon) {
+		onModifySpe: function (spe, pokemon) {
 			if (this.isWeather(['raindance', 'primordialsea'])) {
-				return this.chain(speMod, 2);
+				return this.chainModify(2);
 			}
 		},
 		id: "swiftswim",
@@ -2746,7 +2762,7 @@ exports.BattleAbilities = {
 				return;
 			}
 			if (pokemon.setItem(sourceItem)) {
-				this.add('-activate', pokemon, 'ability: Symbiosis', sourceItem, '[of] ' + this.effectData.target);
+				this.add('-activate', this.effectData.target, 'ability: Symbiosis', sourceItem, '[of] ' + pokemon);
 			}
 		},
 		id: "symbiosis",
@@ -2939,7 +2955,6 @@ exports.BattleAbilities = {
 		onBeforeMove: function (pokemon, target, move) {
 			if (pokemon.removeVolatile('truant')) {
 				this.add('cant', pokemon, 'ability: Truant', move);
-				pokemon.isStaleHP++;
 				return false;
 			}
 			pokemon.addVolatile('truant');
@@ -2999,9 +3014,9 @@ exports.BattleAbilities = {
 			pokemon.removeVolatile('unburden');
 		},
 		effect: {
-			onModifySpe: function (speMod, pokemon) {
+			onModifySpe: function (spe, pokemon) {
 				if (!pokemon.item) {
-					return this.chain(speMod, 2);
+					return this.chainModify(2);
 				}
 			}
 		},
@@ -3037,6 +3052,7 @@ exports.BattleAbilities = {
 		shortDesc: "This Pokemon cannot fall asleep. Gaining this Ability while asleep cures it.",
 		onUpdate: function (pokemon) {
 			if (pokemon.status === 'slp') {
+				this.add('-activate', pokemon, 'ability: Vital Spirit');
 				pokemon.cureStatus();
 			}
 		},
@@ -3054,7 +3070,7 @@ exports.BattleAbilities = {
 		onTryHit: function (target, source, move) {
 			if (target !== source && move.type === 'Electric') {
 				if (!this.heal(target.maxhp / 4)) {
-					this.add('-immune', target, '[msg]');
+					this.add('-immune', target, '[msg]', '[from] ability: Volt Absorb');
 				}
 				return null;
 			}
@@ -3070,7 +3086,7 @@ exports.BattleAbilities = {
 		onTryHit: function (target, source, move) {
 			if (target !== source && move.type === 'Water') {
 				if (!this.heal(target.maxhp / 4)) {
-					this.add('-immune', target, '[msg]');
+					this.add('-immune', target, '[msg]', '[from] ability: Water Absorb');
 				}
 				return null;
 			}
@@ -3084,6 +3100,7 @@ exports.BattleAbilities = {
 		shortDesc: "This Pokemon cannot be burned. Gaining this Ability while burned cures it.",
 		onUpdate: function (pokemon) {
 			if (pokemon.status === 'brn') {
+				this.add('-activate', pokemon, 'ability: Water Veil');
 				pokemon.cureStatus();
 			}
 		},
@@ -3100,7 +3117,7 @@ exports.BattleAbilities = {
 		shortDesc: "If a physical attack hits this Pokemon, Defense is lowered by 1, Speed is raised by 1.",
 		onAfterDamage: function (damage, target, source, move) {
 			if (move.category === 'Physical') {
-				this.boost({spe:1, def:-1});
+				this.boost({def:-1, spe:1});
 			}
 		},
 		id: "weakarmor",
@@ -3170,25 +3187,27 @@ exports.BattleAbilities = {
 				pokemon.removeVolatile('zenmode');
 			}
 		},
+		onEnd: function (pokemon) {
+			if (!pokemon.volatiles['zenmode'] || !pokemon.hp) return;
+			pokemon.transformed = false;
+			delete pokemon.volatiles['zenmode'];
+			if (pokemon.formeChange('Darmanitan')) {
+				this.add('-formechange', pokemon, 'Darmanitan', '[silent]');
+			}
+		},
 		effect: {
 			onStart: function (pokemon) {
 				if (pokemon.formeChange('Darmanitan-Zen')) {
-					this.add('-formechange', pokemon, 'Darmanitan-Zen');
+					this.add('-formechange', pokemon, 'Darmanitan-Zen', '[from] ability: Zen Mode');
 				} else {
 					return false;
 				}
 			},
 			onEnd: function (pokemon) {
 				if (pokemon.formeChange('Darmanitan')) {
-					this.add('-formechange', pokemon, 'Darmanitan');
+					this.add('-formechange', pokemon, 'Darmanitan', '[from] ability: Zen Mode');
 				} else {
 					return false;
-				}
-			},
-			onUpdate: function (pokemon) {
-				if (!pokemon.hasAbility('zenmode')) {
-					pokemon.transformed = false;
-					pokemon.removeVolatile('zenmode');
 				}
 			}
 		},

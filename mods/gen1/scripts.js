@@ -142,6 +142,8 @@ exports.BattleScripts = {
 						if (usedMovePos > -1 && pokemon.moveset[usedMovePos].pp === 0) {
 							// If we were on the middle of the 0 PP sequence, the PPs get reset to 63.
 							pokemon.moveset[usedMovePos].pp = 63;
+							pokemon.isStale = 2;
+							pokemon.isStaleSource = 'ppoverflow';
 						}
 					}
 				}
@@ -269,12 +271,7 @@ exports.BattleScripts = {
 
 		// Calculate true accuracy for gen 1, which uses 0-255.
 		if (accuracy !== true) {
-			// Rage bug
-			if (move.id === 'rage' && pokemon.volatiles['ragemiss']) {
-				accuracy = 1;
-			} else {
-				accuracy = Math.floor(accuracy * 255 / 100);
-			}
+			accuracy = Math.floor(accuracy * 255 / 100);
 			// Check also for accuracy modifiers.
 			if (!move.ignoreAccuracy) {
 				if (pokemon.boosts.accuracy > 0) {
