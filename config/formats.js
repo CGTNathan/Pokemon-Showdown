@@ -1667,5 +1667,430 @@ exports.Formats = [
 				move.self = {boosts: {atk:-1}};
 			}
 		}
+	},
+	{
+		name: "One Of Us",
+		section: "Other Metagames",
+
+		mod: 'oneofus',
+		team: 'randomOMAuth',
+		ruleset: ['Pokemon', 'Sleep Clause Mod', 'HP Percentage Mod', 'Cancel Mod'],
+		onBegin: function () {
+			// This seasonal gets a bit from Super Smash Bros., that's where the initial message comes from.
+			this.add('message', "GET READY FOR THE NEXT BATTLE!");
+			// This link leads to a post where all signature moves can be found so the user can use this resource while battling.
+			this.add("raw|Eos Staff Bros. information can be found <a href='http://pastebin.com/nVr0aiHX'>here.</a>");
+			this.add("raw|~coded by Mr. CGTNathan.");
+			// This variable saves the status of a spammy conversation to be played, so it's only played once.
+			this.convoPlayed = false;
+ 
+			// This code here is used for the renaming of moves showing properly on client.
+			var globalRenamedMoves = {
+				
+			};
+			var customRenamedMoves = {};
+			var allPokemon = this.p1.pokemon.concat(this.p2.pokemon);
+ 
+			for (var i = 0, len = allPokemon.length; i < len; i++) {
+				var pokemon = allPokemon[i];
+				var last = pokemon.moves.length - 1;
+				if (pokemon.moves[last]) {
+					pokemon.moves[last] = toId(pokemon.set.signatureMove);
+					pokemon.moveset[last].move = pokemon.set.signatureMove;
+					pokemon.baseMoveset[last].move = pokemon.set.signatureMove;
+				}
+				for (var j = 0; j < pokemon.moveset.length; j++) {
+					var moveData = pokemon.moveset[j];
+					if (globalRenamedMoves[moveData.id]) {
+						pokemon.moves[j] = toId(pokemon.set.signatureMove);
+						moveData.move = globalRenamedMoves[moveData.id];
+						pokemon.baseMoveset[j].move = globalRenamedMoves[moveData.id];
+					}
+					if (customRenamedMoves[pokemon.name] && customRenamedMoves[pokemon.name][moveData.id]) {
+						pokemon.moves[j] = toId(pokemon.set.signatureMove);
+						moveData.move = customRenamedMoves[pokemon.name][moveData.id];
+						pokemon.baseMoveset[j].move = customRenamedMoves[pokemon.name][moveData.id];
+					}
+				}
+				if (pokemon.name === '~fender') {
+					var hprat = pokemon.hp/pokemon.maxhp;
+					pokemon.baseStats = {atk:276, def:164, spa:134, spd:144, spe:260};
+					pokemon.maxhp = 275;
+					pokemon.hp = Math.floor(pokemon.maxhp*hprat);
+				}
+			}
+		},
+		// Here we treat many things, read comments inside for information.
+		onSwitchIn: function (pokemon) {
+			var name = toId(pokemon.illusion ? pokemon.illusion.name : pokemon.name);
+			// Add here more hacky stuff for mega abilities.
+			// This happens when the mega switches in, as opposed to mega-evolving on the turn.
+			var oldAbility = pokemon.ability;
+			if (pokemon.template.isMega) {
+				if (name === 'leafshield' && pokemon.getAbility().id !== 'chlorophyll') {
+					pokemon.setAbility('chlorophyll');
+					this.add('-ability', pokemon, pokemon.ability);
+				}
+			} else {
+				pokemon.canMegaEvo = this.canMegaEvo(pokemon); // Bypass one mega limit.
+			}
+ 
+			// Add here special typings, done for flavour mainly.
+			if (name === 'voidchrono' && !pokemon.illusion) {
+				this.add('-start', pokemon, 'typechange', 'Fighting/Fire');
+				pokemon.typesData = [
+					{type: 'Fighting', suppressed: false,  isAdded: false},
+					{type: 'Fire', suppressed: false,  isAdded: false}
+				];
+			}
+			if (name === 'desolatenightmare' && !pokemon.illusion) {
+				this.add('-start', pokemon, 'typechange', 'Electric/Dark');
+				pokemon.typesData = [
+					{type: 'Fighting', suppressed: false,  isAdded: false},
+					{type: 'Fire', suppressed: false,  isAdded: false}
+				];
+			}
+			if (name === 'upstrokingtotodile' && !pokemon.illusion) {
+				this.add('-start', pokemon, 'typechange', 'Water/Dragon');
+				pokemon.typesData = [
+					{type: 'Water', suppressed: false,  isAdded: false},
+					{type: 'Dragon', suppressed: false,  isAdded: false}
+				];
+			}
+			
+			// Edgy switch-in sentences go here.
+			// Sentences vary in style and how they are presented, so each Pokémon has its own way of sending them.
+			var sentences = [];
+			var sentence = '';
+		   
+			// Room Owners
+			if (name === 'mrcgtnathan') {
+				this.add('c|#Mr. CGTNathan|Welcome to One Of Us. May I show you the door?');
+			}
+			if (name === 'ikray') {
+				this.add('c|#iKray|Cupcakes are bad for your health.');
+			}
+			if (name === 'jzb') {
+				this.add('c|#Jzb|Cupcakes are bad for your health.');
+			}
+			if (name === 'kgbeast') {
+				this.add('c|#KGBeast|Cupcakes are bad for your health.');
+			}
+			if (name === 'ntgs') {
+				this.add('c|#NTGs|Cupcakes are bad for your health.');
+			}
+			if (name === 'oreohunter') {
+				this.add('c|#Oreo Hunter|get ready to get rest m8');
+			}
+			if (name === 'ralker') {
+				this.add('c|#Ralker|BANG BANG INTO THE ROOM');
+			}
+			if (name === 'sonichoot') {
+				this.add('c|#Sonic Hoot|Face the wrath of Hoot!');
+			}
+			if (name === 'voidchrono') {
+				this.add('c|#Void Chrono|Don\'t let your dreams be memes!');
+			}
+			if (name === 'voidcryptis') {
+				this.add('c|#Void Cryptis|So I need a new league...');
+			}
+			if (name === 'xpiratex') {
+				this.add('c|#xPiratex|Cupcakes are bad for your health.');
+			}
+			if (name === 'safetyshark') {
+				this.add('c|#Safety Shark|Cupcakes are bad for your health.');
+			}
+			
+			// Moderators
+			if (name === 'simonsciences') {
+				this.add('c|@Simon Sciences|shall we begin the experiment?');
+			}
+			
+			// Drivers
+			if (name === 'desolatenightmare') {
+				this.add('c|%Desolate Nightmare|I\'m tired, what do you want?');
+			}
+			if (name === 'icarus') {
+				this.add('c|%Icarus|Cupcakes are bad for your health.');
+			}
+			if (name === 'impkswiss') {
+				this.add('c|%Imp Kswiss|Cupcakes are bad for your health.');
+			}
+			if (name === 'mariav') {
+				this.add('c|%Maria V|KILL IT WITH FIRE!!!');
+			}
+			if (name === 'tacoboymc') {
+				this.add('c|%TacoboyMC|Rollin in');
+			}
+			if (name === 'upstrokingtotodile') {
+				this.add('c|%Upstroking Totodile|Thx Mom');
+			}
+			
+			// Voices
+			if (name === 'lttesla') {
+				this.add('c|+Lt. Tesla|A wild creampuff approaches!');
+			}
+			if (name === 'neosoul') {
+				this.add('c|+Neo Soul|Ayyy lmao, whaddup fam?');
+			}
+			if (name === 'vinpyre') {
+				this.add('c|+Vin Pyre|Cupcakes are bad for your health.');
+			}
+			if (name === 'warlic') {
+				this.add('c|+warlic|Salutations good Sir or Madam user.');
+			}
+		},
+		
+		// Various
+		onModifyPriority: function (priority, pokemon, target, move) {
+			var name = toId(pokemon.name);
+			if (name === 'franchescoenzo' && move.id === 'filth') {
+				if (pokemon.activeTurns > 1) {
+					return priority + 0;
+				} else {
+					return priority + 4;
+				}
+			}
+			if (name === 'bostonian' && move.id === 'doubletieraddition') {
+				if (pokemon.activeTurns > 1) {
+					return priority + 0;
+				} else {
+					return priority + 4;
+				}
+			}
+		},
+		// Add here salty tears, that is, custom faint phrases.
+		onFaint: function (pokemon) {
+			if (pokemon.illusioTransformed) {
+				pokemon.name = '+Illusio';
+				pokemon.illusioTransformed = false;
+			}
+			var name = toId(pokemon.name);
+			var sentences = [];
+			var sentence = '';
+ 
+			// Room Owners	
+			if (name === 'mrcgtnathan') {
+				this.add('c|#Mr. CGTNathan|Fun.');
+			}
+			if (name === 'ikray') {
+				this.add('c|#iKray|Cupcakes are bad for your health.');
+			}
+			if (name === 'jzb') {
+				this.add('c|#Jzb|Cupcakes are bad for your health.');
+			}
+			if (name === 'kgbeast') {
+				this.add('c|#KGBeast|Cupcakes are bad for your health.');
+			}
+			if (name === 'ntgs') {
+				this.add('c|#NTGs|Cupcakes are bad for your health.');
+			}
+			if (name === 'oreohunter') {
+				this.add('c|#Oreo Hunter|i got rest m8 ');
+			}
+			if (name === 'ralker') {
+				this.add('c|#Ralker|I hate everyone, except Kray. Kray is bae');
+			}
+			if (name === 'sonichoot') {
+				var delta = ['#Mr. CGTNathan', '#Void Chrono', '#Oreo Hunter', '%UpstrokingTotodile', '%Desolate Nightmare', '%Maria V', '#Ralker', '#KGBeast', '%Icarus'][this.random(9)];
+				this.add('c|' + delta + '|Hoooooooooooottttt did yoooou loooooose');
+			}
+			if (name === 'voidchrono') {
+				this.add('c|#Void Chrono|You can\'t ヽ༼◐ل͜◑༽ﾉ defeat ヽ༼◐ل͜◑༽ﾉ the squid!');
+			}
+			if (name === 'voidcryptis') {
+				this.add('c|#Void Cryptis|Fuck it I\'m done I quit');
+			}
+			if (name === 'xpiratex') {
+				this.add('c|#xPiratex|Whatever, I\'m too fucking old for this shit.');
+			}
+			if (name === 'safetyshark') {
+				this.add('c|#Safety Shark|+leave');
+			}
+			
+			// Moderators
+			if (name === 'simonsciences') {
+				this.add('c|@Simon Sciences|FFFFFFFFFFFFFFFF');
+			}
+			
+			// Drivers
+			if (name === 'desolatenightmare') {
+				this.add('c|%Desolate Nightmare|Welp, I tried. I\'m going back to sleep. Wake me up when I give a shit.');
+			}
+			if (name === 'icarus') {
+				this.add('c|%Icarus|Cupcakes are bad for your health.');
+			}
+			if (name === 'impkswiss') {
+				this.add('c|%Imp Kswiss|Cupcakes are bad for your health.');
+			}
+			if (name === 'mariav') {
+				this.add('c|%Maria V|AHH! Fire! My greatest weakness! Dammit, Nightmare!');
+			}
+			if (name === 'tacoboymc') {
+				this.add('c|%TacoboyMC|RAWWRRRRrrrrr..........r');
+			}
+			if (name === 'upstrokingtotodile') {
+				var phrases = ['You\'re not my dad!', '¡Tú no eres mi padre!'][this.random(2)];
+				this.add('c|%Upstroking Totodile|' + phrases);
+			}
+			// Voices
+			if (name === 'lttesla') {
+				this.add('c|+Lt. Tesla|A true tesla never dies even when he\'s killed');
+			}			
+			if (name === 'neosoul') {
+				this.add('c|+Neo Soul|#freewolf Hello? Nah nigga......fuck this...');
+			}
+			if (name === 'vinpyre') {
+				this.add('c|+Vin Pyre|Cupcakes are bad for your health.');
+			}
+			if (name === 'warlic') {
+				this.add('c|+warlic|warlic*');
+			}
+		},
+		
+		onModifyPokemon: function (pokemon) {
+			var name = toId(pokemon.name);
+			// Enforce choice item locking on custom moves.
+			// qtrx only has one move anyway. This isn't implemented for Cathy since her moves are all custom. Don't trick her a Scarf!
+			if (name !== 'qtrx' && name !== 'Cathy') {
+				var moves = pokemon.moveset;
+				if (pokemon.getItem().isChoice && pokemon.lastMove === moves[3].id) {
+					for (var i = 0; i < 3; i++) {
+						if (!moves[i].disabled) {
+							pokemon.disableMove(moves[i].id, false);
+							moves[i].disabled = true;
+						}
+					}
+				}
+			}
+			for (var p in pokemon.side.pokemon) {
+				if (pokemon.side.pokemon[p].name === '%UpstrokingTotodile') {
+					pokemon.side.pokemon[p].baseStats = {hp:373, atk:301, def:236, spa:194, spd:202, spe:202};
+					//This corresponds to 70 / 132 / 72 / 120 / 90 / 149 Stats, because I keep forgetting them...
+				}
+				if (pokemon.side.pokemon[p].name === '+insanelegend') {
+					pokemon.side.pokemon[p].baseStats = {hp:334, atk:150, def:217, spa:129, spd:138, spe:108};
+				}
+				if (pokemon.side.pokemon[p].name === '+Mamp') {
+					pokemon.side.pokemon[p].baseStats = {hp:324, atk:201, def:225, spa:284, spd:224, spe:312};
+				}
+			}
+		},
+		// Specific residual events for custom moves.
+		// This allows the format to have kind of custom side effects and volatiles.
+		onResidual: function (battle) {
+			for (var s in battle.sides) {
+				var thisSide = battle.sides[s];
+				if (thisSide.premonTimer > 4) {
+					thisSide.premonTimer = 0;
+					thisSide.premonEffect = true;
+				} else if (thisSide.premonTimer > 0) {
+					if (thisSide.premonTimer === 4) thisSide.addSideCondition('safeguard');
+					thisSide.premonTimer++;
+				}
+				for (var p in thisSide.active) {
+					var pokemon = thisSide.active[p];
+					var name = toId(pokemon.name);
+
+					if (pokemon.side.premonEffect) {
+						pokemon.side.premonEffect = false;
+						this.add('c|@zdrup|...dary! __**LEGENDARY!**__');
+						this.boost({atk:1, def:1, spa:1, spd:1, spe:1, accuracy:1}, pokemon, pokemon, 'legendary premonition');
+						pokemon.addVolatile('aquaring');
+						pokemon.addVolatile('focusenergy');
+					}
+					if (pokemon.volatiles['paranoid'] && !pokemon.fainted && (pokemon.hp !== pokemon.maxhp)) {
+						this.heal(pokemon.maxhp / 8, pokemon, pokemon);
+						this.add('-message', pokemon.name + "'s stalling healed itself!");
+					}
+					if (pokemon.volatiles['unownaura'] && !pokemon.fainted && !pokemon.illusion) {
+						this.add('-message', "Your keyboard is reacting to " + pokemon.name + "'s Unown aura!");
+						if (this.random(2) === 1) {
+							this.useMove('trickroom', pokemon);
+						} else {
+							this.useMove('wonderroom', pokemon);
+						}
+					}
+					if (name === 'beowulf' && !pokemon.fainted && !pokemon.illusion) {
+						this.add('c|@Beowulf|/me buzzes loudly!');
+					}
+					if (name === 'cathy' && !pokemon.fainted && !pokemon.illusion) {
+						var messages = [
+							'kicking is hilarious!',
+							'flooding the chat log with kicks makes me lol',
+							'please don\'t stop me from having fun',
+							'having fun is great!',
+							'isn\'t this so much fun?',
+							'let\'s all have fun by spamming the channel!',
+							'FUN FUN FUN',
+							'SO MUCH FUN!',
+							'^_^ fun times ^_^',
+							'/me is having so much fun!',
+							'having fun is great!',
+							'/me thinks spam is fun!',
+							'/me loves spamming this channel, because it\'s completely inconsequential!',
+							'this is just the internet -- nothing matters!',
+							'let\'s have fun ALL NIGHT LONG!!!!!!!!!!!!!!!!!!!!!!'
+						];
+						this.add('c|HappyFunTimes|' + messages[this.random(15)]);
+					}
+					if (pokemon.volatiles['parry']) {
+						// Dell hasn't been attacked.
+						pokemon.removeVolatile('parry');
+						this.add('-message', "Untouched, the Aura Parry grows stronger still!");
+						this.boost({def:1, spd:1}, pokemon, pokemon, 'Aura Parry');
+					}
+					if (name === 'snaquaza' && pokemon.template.isMega && !pokemon.ascended) {
+						if (pokemon.ascensionCount < 0) {
+							this.add('-message', "@Snaquaza is too powerful for this metagame, and needs to ascend to Anything Goes!");
+							this.add('-message', "@Snaquaza has 3 turns remaining before he faints automatically! Use Ascension to get him into Anything Goes as soon as possible!");
+							pokemon.ascensionCount = 1;
+						} else if (pokemon.ascensionCount !== 3) {
+							this.add('-message', "@Snaquaza has " + (3 - pokemon.ascensionCount) + " turns remaining before he faints automatically! Use Ascension to get him into Anything Goes as soon as possible!");
+							pokemon.ascensionCount++;
+						} else {
+							this.add('-message', "@Snaquaza was unable to ascend in time!");
+							pokemon.ascensionCount++;
+							pokemon.ascended = -1;
+							pokemon.faint();
+						}
+					}
+				}
+				for (var q in thisSide.pokemon) {
+					if (q.name === '%Pikachuun') {
+						var hprat = q.hp/q.maxhp;
+						q.baseStats = {atk:348, def:155, spa:266, spd:207, spe:419};
+						//This corresponds to 70 / 132 / 72 / 120 / 90 / 149 Stats, because I keep forgetting them...
+					}
+					if (q.name === '+insanelegend') {
+						var hprat = q.hp/q.maxhp;
+						q.baseStats = {hp:334, atk:150, def:217, spa:129, spd:138, spe:108};
+					}
+				}
+			}
+		},
+		// This is where the signature moves are actually done.
+		onModifyMove: function (move, pokemon, target) {
+			var name = toId(pokemon.illusion && move.sourceEffect === 'allyswitch' ? pokemon.illusion.name : pokemon.name);
+			// Prevent visual glitch with Spell Steal.
+			move.effectType = 'Move';
+			// Just because it's funny. It still is.
+
+			// Room Owner signature moves.
+
+			/*if (move.id === 'vividdreams' && name === 'naten') {
+				move.name = 'Vivid Dreams';
+				this.add("c|~Naten|Oh shit.");
+			}*/
+			if (move.id === 'fakeout' && name === 'swlneski' && pokemon.ability === 'aerialrage') {
+				delete move.secondary;
+				delete move.secondaries;
+				move.secondaries = [{chance: 100, volatileStatus: 'flinch'}];
+				move.self = {boosts: {atk:-1}};
+			}
+			if (move.id === 'extremespeed' && name === 'swlneski' && pokemon.ability === 'aerialrage') {
+				move.self = {boosts: {atk:-1}};
+			}
+		}
 	}
 ];

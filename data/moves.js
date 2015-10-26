@@ -638,6 +638,18 @@ exports.BattleMovedex = {
 					return false;
 				}
 			},
+			onFoeSwitchOut: function (pokemon) {// target: eevee (victim); source: togepi (attracter); pokemon=source
+				if (this.effectData.source === pokemon) {
+					this.debug('Removing Attract volatile on ' + this.effectData.target);
+					this.effectData.target.removeVolatile('attract');
+				}
+			},
+			onFoeFaint: function (pokemon) {// target: eevee (victim); source: togepi (attracter); pokemon=source
+				if (this.effectData.source === pokemon) {
+					this.debug('Removing Attract volatile on ' + this.effectData.target);
+					this.effectData.target.removeVolatile('attract');
+				}
+			},
 			onEnd: function (pokemon) {
 				this.add('-end', pokemon, 'Attract', '[silent]');
 			}
