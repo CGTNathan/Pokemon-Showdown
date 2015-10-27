@@ -2,7 +2,7 @@ exports.BattleScripts = {
 	randomOMAuthTeam: function (side) {
 		var team = [];
 		var variant = this.random(2);
-		// Hardcoded sets of the available Pokémon.
+		// Hardcoded sets of the available PokÃ©mon.
 		var sets = {
 			// Room Owners
 			'#Mr. CGTNathan': {
@@ -36,9 +36,9 @@ exports.BattleScripts = {
 				evs: {hp:4, atk:252, spe:252}, nature: 'Jolly'
 			},
 			'#NTGs': {
-				species: 'Dragonite', ability: 'Safety First', item: 'Assault Vest', gender: 'M',
-				moves: ['earthquake', 'dragon claw', 'flamethrower'],
-				baseSignatureMove: 'quote', signatureMove: "+quote",
+				species: 'Dragonite', ability: 'Ultimate Hax', item: 'Weakness Policy', gender: 'M',
+				moves: ['iron head', 'waterfall', 'dragon dance', 'steel wing', 'earthquake', 'thunder punch'],
+				baseSignatureMove: 'megahax', signatureMove: "Mega Hax",
 				evs: {hp:4, atk:252, spe:252}, nature: 'Jolly'
 			},*/
 			'#Oreo Hunter': {
