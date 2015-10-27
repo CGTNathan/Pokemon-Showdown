@@ -3290,6 +3290,13 @@ exports.BattleAbilities = {
 					return stat;
 				};
 			},
+			onModifyMove: function (move, source) {
+				if (move.priority !== 0) {
+					var oldPriority = move.priority;
+					var newPriority = oldPriority - (oldPriority * 2);
+					move.priority = newPriority;
+				}
+			},
 			onResidualOrder: 23,
 			onEnd: function () {
 				this.add('-fieldend', 'move: Trick Room');
@@ -3607,8 +3614,10 @@ exports.BattleAbilities = {
 				return this.chainModify(0.75);
 			}
 		},
-		onModifyMove: function (move) {
-			move.selfSwitch = true;
+		onModifyMove: function (move, source) {
+			if (source.name !== '%TacoboyMC') {
+				move.selfSwitch = true;
+			}
 		},
 		onStart: function (pokemon) {
 			var target = pokemon.side.foe.active[pokemon.side.foe.active.length - 1 - pokemon.position];
