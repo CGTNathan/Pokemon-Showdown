@@ -155,6 +155,12 @@ exports.BattleScripts = {
 			},
 			
 			// Voices
+			/*'+BT Cant Get Burns: {
+				species: 'Jirachi', ability: 'btcantgitgud', item: 'Choice Scarf', gender: 'M', shiny: true,
+				moves: ['iron head', 'u-turn', 'flamethrower'],
+				baseSignatureMove: 'quote', signatureMove: "+quote",
+				evs: {hp:4, atk:252, spe:252}, nature: 'Jolly'
+			},*/
 			'+Lt. Tesla': {
 				species: 'Zapdos', ability: 'Beard Coat', item: 'Leftovers', gender: 'M',
 				moves: ['roost', 'defog', ['flamethrower', 'geomancy'][this.random(2)]],
