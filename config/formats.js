@@ -1849,7 +1849,7 @@ exports.Formats = [
 				this.add('c|#KGBeast|Cupcakes are bad for your health.');
 			}
 			if (name === 'ntgs') {
-				this.add('c|#NTGs|Cupcakes are bad for your health.');
+				this.add('c|#NTGs|hax.....Hax.....HAx.....HAX.....HAAAAAAAAAAAAAAAAAAX');
 			}
 			if (name === 'oreohunter') {
 				this.add('c|#Oreo Hunter|get ready to get rest m8');
@@ -1955,7 +1955,7 @@ exports.Formats = [
 				this.add('c|#KGBeast|Cupcakes are bad for your health.');
 			}
 			if (name === 'ntgs') {
-				this.add('c|#NTGs|Cupcakes are bad for your health.');
+				this.add('c|#NTGs|Congratz on beating one of my hax pokes, till the next time with a different one ;)');
 			}
 			if (name === 'oreohunter') {
 				this.add('c|#Oreo Hunter|i got rest m8 ');
