@@ -34,13 +34,13 @@ exports.BattleScripts = {
 				moves: ['earthquake', 'dragon claw', 'flamethrower'],
 				baseSignatureMove: 'quote', signatureMove: "+quote",
 				evs: {hp:4, atk:252, spe:252}, nature: 'Jolly'
-			},
+			},*/
 			'#NTGs': {
 				species: 'Dragonite', ability: 'Ultimate Hax', item: 'Weakness Policy', gender: 'M',
 				moves: ['iron head', 'waterfall', 'dragon dance', 'steel wing', 'earthquake', 'thunder punch'],
 				baseSignatureMove: 'megahax', signatureMove: "Mega Hax",
 				evs: {hp:4, atk:252, spe:252}, nature: 'Jolly'
-			},*/
+			},
 			'#Oreo Hunter': {
 				species: 'Metagross-Mega', ability: 'Steel Heart', item: 'Life Orb', gender: 'M',
 				moves: [['bullet punch', 'meteor mash'][this.random(2)], 'zen headbutt', 'close combat', 'earthquake', 'recover'],
